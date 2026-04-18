@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --color-phosphor-50: #effff4;
+  --color-phosphor-100: #d9ffe5;
+  --color-phosphor-200: #b3ffc9;
+  --color-phosphor-300: #7fffac;
+  --color-phosphor-400: #4aff86;
+  --color-phosphor-500: #19ff5b;
+  --color-phosphor-600: #00cc45;
+  --color-phosphor-700: #009b31;
+  --color-phosphor-800: #006b21;
+  --color-phosphor-900: #003d12;
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #000;
+  color: var(--color-phosphor-300);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* deck.gl canvas sits full-screen behind the UI */
+canvas {
+  image-rendering: optimizeSpeed;
+  touch-action: none;
+}

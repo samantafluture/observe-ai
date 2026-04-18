@@ -1,0 +1,37 @@
+{
+  "type": "FeatureCollection",
+  "name": "ai-facilities",
+  "metadata": {
+    "source": "Manually curated from public company websites",
+    "notes": "Principal AI lab headquarters and major research offices. Phase 1 curated subset (~25 orgs); Crunchbase + Google Places expansion planned for Phase 2.",
+    "updated": "2026-04-13"
+  },
+  "features": [
+    { "type": "Feature", "properties": { "id": "ai-openai", "name": "OpenAI", "operator": "OpenAI", "type": "ai_facility", "role": "HQ", "country": "US", "city": "San Francisco" }, "geometry": { "type": "Point", "coordinates": [-122.3997, 37.7627] } },
+    { "type": "Feature", "properties": { "id": "ai-anthropic", "name": "Anthropic", "operator": "Anthropic", "type": "ai_facility", "role": "HQ", "country": "US", "city": "San Francisco" }, "geometry": { "type": "Point", "coordinates": [-122.4014, 37.7886] } },
+    { "type": "Feature", "properties": { "id": "ai-deepmind-london", "name": "Google DeepMind — London", "operator": "Google DeepMind", "type": "ai_facility", "role": "HQ", "country": "GB", "city": "London" }, "geometry": { "type": "Point", "coordinates": [-0.1264, 51.5302] } },
+    { "type": "Feature", "properties": { "id": "ai-google-research", "name": "Google AI / Research", "operator": "Google", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Mountain View" }, "geometry": { "type": "Point", "coordinates": [-122.0841, 37.4221] } },
+    { "type": "Feature", "properties": { "id": "ai-meta-fair", "name": "Meta AI (FAIR)", "operator": "Meta", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Menlo Park" }, "geometry": { "type": "Point", "coordinates": [-122.1484, 37.4848] } },
+    { "type": "Feature", "properties": { "id": "ai-msr-redmond", "name": "Microsoft Research", "operator": "Microsoft", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Redmond" }, "geometry": { "type": "Point", "coordinates": [-122.1284, 47.6396] } },
+    { "type": "Feature", "properties": { "id": "ai-nvidia", "name": "NVIDIA HQ", "operator": "NVIDIA", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Santa Clara" }, "geometry": { "type": "Point", "coordinates": [-121.9674, 37.3702] } },
+    { "type": "Feature", "properties": { "id": "ai-xai", "name": "xAI", "operator": "xAI", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Palo Alto" }, "geometry": { "type": "Point", "coordinates": [-122.143, 37.4419] } },
+    { "type": "Feature", "properties": { "id": "ai-mistral", "name": "Mistral AI", "operator": "Mistral AI", "type": "ai_facility", "role": "HQ", "country": "FR", "city": "Paris" }, "geometry": { "type": "Point", "coordinates": [2.3522, 48.8566] } },
+    { "type": "Feature", "properties": { "id": "ai-cohere", "name": "Cohere", "operator": "Cohere", "type": "ai_facility", "role": "HQ", "country": "CA", "city": "Toronto" }, "geometry": { "type": "Point", "coordinates": [-79.3832, 43.6532] } },
+    { "type": "Feature", "properties": { "id": "ai-stability", "name": "Stability AI", "operator": "Stability AI", "type": "ai_facility", "role": "HQ", "country": "GB", "city": "London" }, "geometry": { "type": "Point", "coordinates": [-0.1278, 51.5074] } },
+    { "type": "Feature", "properties": { "id": "ai-huggingface", "name": "Hugging Face", "operator": "Hugging Face", "type": "ai_facility", "role": "HQ", "country": "US", "city": "New York" }, "geometry": { "type": "Point", "coordinates": [-74.006, 40.7128] } },
+    { "type": "Feature", "properties": { "id": "ai-inflection", "name": "Inflection AI", "operator": "Inflection AI", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Palo Alto" }, "geometry": { "type": "Point", "coordinates": [-122.1575, 37.4275] } },
+    { "type": "Feature", "properties": { "id": "ai-perplexity", "name": "Perplexity AI", "operator": "Perplexity AI", "type": "ai_facility", "role": "HQ", "country": "US", "city": "San Francisco" }, "geometry": { "type": "Point", "coordinates": [-122.4194, 37.7749] } },
+    { "type": "Feature", "properties": { "id": "ai-character", "name": "Character.AI", "operator": "Character.AI", "type": "ai_facility", "role": "HQ", "country": "US", "city": "Menlo Park" }, "geometry": { "type": "Point", "coordinates": [-122.1817, 37.4529] } },
+    { "type": "Feature", "properties": { "id": "ai-scale", "name": "Scale AI", "operator": "Scale AI", "type": "ai_facility", "role": "HQ", "country": "US", "city": "San Francisco" }, "geometry": { "type": "Point", "coordinates": [-122.3961, 37.7849] } },
+    { "type": "Feature", "properties": { "id": "ai-databricks", "name": "Databricks (Mosaic)", "operator": "Databricks", "type": "ai_facility", "role": "HQ", "country": "US", "city": "San Francisco" }, "geometry": { "type": "Point", "coordinates": [-122.4009, 37.7903] } },
+    { "type": "Feature", "properties": { "id": "ai-runway", "name": "Runway", "operator": "Runway", "type": "ai_facility", "role": "HQ", "country": "US", "city": "New York" }, "geometry": { "type": "Point", "coordinates": [-73.994, 40.7305] } },
+    { "type": "Feature", "properties": { "id": "ai-ai21", "name": "AI21 Labs", "operator": "AI21 Labs", "type": "ai_facility", "role": "HQ", "country": "IL", "city": "Tel Aviv" }, "geometry": { "type": "Point", "coordinates": [34.7818, 32.0853] } },
+    { "type": "Feature", "properties": { "id": "ai-sakana", "name": "Sakana AI", "operator": "Sakana AI", "type": "ai_facility", "role": "HQ", "country": "JP", "city": "Tokyo" }, "geometry": { "type": "Point", "coordinates": [139.6503, 35.6762] } },
+    { "type": "Feature", "properties": { "id": "ai-aleph-alpha", "name": "Aleph Alpha", "operator": "Aleph Alpha", "type": "ai_facility", "role": "HQ", "country": "DE", "city": "Heidelberg" }, "geometry": { "type": "Point", "coordinates": [8.6724, 49.3988] } },
+    { "type": "Feature", "properties": { "id": "ai-baidu", "name": "Baidu AI", "operator": "Baidu", "type": "ai_facility", "role": "Research", "country": "CN", "city": "Beijing" }, "geometry": { "type": "Point", "coordinates": [116.3057, 39.992] } },
+    { "type": "Feature", "properties": { "id": "ai-damo", "name": "Alibaba DAMO Academy", "operator": "Alibaba", "type": "ai_facility", "role": "Research", "country": "CN", "city": "Hangzhou" }, "geometry": { "type": "Point", "coordinates": [120.1551, 30.2741] } },
+    { "type": "Feature", "properties": { "id": "ai-tencent", "name": "Tencent AI Lab", "operator": "Tencent", "type": "ai_facility", "role": "Research", "country": "CN", "city": "Shenzhen" }, "geometry": { "type": "Point", "coordinates": [114.0579, 22.5431] } },
+    { "type": "Feature", "properties": { "id": "ai-zhipu", "name": "Zhipu AI", "operator": "Zhipu AI", "type": "ai_facility", "role": "HQ", "country": "CN", "city": "Beijing" }, "geometry": { "type": "Point", "coordinates": [116.4074, 39.9042] } },
+    { "type": "Feature", "properties": { "id": "ai-moonshot", "name": "Moonshot AI", "operator": "Moonshot AI", "type": "ai_facility", "role": "HQ", "country": "CN", "city": "Beijing" }, "geometry": { "type": "Point", "coordinates": [116.4074, 39.9042] } }
+  ]
+}
