@@ -1,0 +1,20 @@
+services:
+  web-assets:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: dist
+    container_name: observe-ai-web-assets
+    volumes:
+      - observe-ai_web:/output
+    profiles:
+      - tools
+
+volumes:
+  observe-ai_web:
+    external: true
+    name: observe-ai_web
+
+networks:
+  infra-net:
+    external: true
