@@ -2,11 +2,14 @@ import { useGlobeStore } from '../../store/globeStore';
 import { useFacilityData } from '../../hooks/useFacilityData';
 import { operatorColor, REGIME_COLOR, REGIME_LABEL } from '../../utils/colors';
 import { LAYERS } from '../../utils/constants';
+import { formatUsd } from '../../utils/format';
 import type {
   AnyFeature,
   FacilityFeature,
+  MoneyFlowFeature,
   RegulatoryFeature,
   SupplyArcFeature,
+  TradeArcFeature,
 } from '../../types';
 import { useMemo } from 'react';
 
@@ -31,15 +34,27 @@ export function Tooltip() {
 
   if (!feature) return null;
 
+  const id = (feature.properties as { id?: string } | undefined)?.id ?? '';
+  const isMoney = id.startsWith('money-');
+  const isTrade = id.startsWith('trade-');
+
   return (
     <div
       className="pointer-events-none absolute z-30 max-w-[240px] rounded border border-phosphor-800/80 bg-black/85 px-2.5 py-1.5 text-[11px] shadow-lg backdrop-blur-sm"
       style={{ left: x + 14, top: y + 14 }}
     >
       {feature.geometry.type === 'Point' ? (
-        <FacilityTip feature={feature as FacilityFeature} />
+        isMoney ? (
+          <MoneyTip feature={feature as MoneyFlowFeature} />
+        ) : (
+          <FacilityTip feature={feature as FacilityFeature} />
+        )
       ) : feature.geometry.type === 'LineString' ? (
-        <ArcTip feature={feature as SupplyArcFeature} pointsById={pointsById} />
+        isTrade ? (
+          <TradeTip feature={feature as TradeArcFeature} />
+        ) : (
+          <ArcTip feature={feature as SupplyArcFeature} pointsById={pointsById} />
+        )
       ) : (
         <RegulatoryTip feature={feature as RegulatoryFeature} />
       )}
@@ -109,6 +124,40 @@ function ArcTip({
         {toName}
       </div>
       <div className="mt-0.5 text-[10px] text-phosphor-700">Supply link</div>
+    </>
+  );
+}
+
+function MoneyTip({ feature }: { feature: MoneyFlowFeature }) {
+  const { country_name, amount_usd, year } = feature.properties;
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ backgroundColor: 'rgb(255,220,120)', boxShadow: '0 0 6px rgb(255,220,120)' }}
+        />
+        <span className="font-medium text-phosphor-200">{country_name}</span>
+      </div>
+      <div className="mt-0.5 text-[10px] text-phosphor-700">
+        Private AI investment · {year} · {formatUsd(amount_usd)}
+      </div>
+    </>
+  );
+}
+
+function TradeTip({ feature }: { feature: TradeArcFeature }) {
+  const { from_name, to_name, value_usd, year, hs_code } = feature.properties;
+  return (
+    <>
+      <div className="text-phosphor-200">
+        {from_name}
+        <span className="mx-1.5 text-phosphor-600">→</span>
+        {to_name}
+      </div>
+      <div className="mt-0.5 text-[10px] text-phosphor-700">
+        HS {hs_code} · {year} · {formatUsd(value_usd)}
+      </div>
     </>
   );
 }

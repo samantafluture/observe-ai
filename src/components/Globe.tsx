@@ -11,12 +11,16 @@ import { buildBasemapLayers } from './layers/basemap';
 import { buildFacilityLayers } from './layers/facilities';
 import { buildRegulatoryLayer } from './layers/regulatory';
 import { buildSupplyLayers } from './layers/supply';
+import { buildMoneyLayers } from './layers/money';
+import { buildTradeLayers } from './layers/trade';
 import { AUTO_ROTATE_DEG_PER_SEC, GLOBE_RESOLUTION, INITIAL_VIEW, LAYERS } from '../utils/constants';
 import type {
   AnyFeature,
   FacilityFeature,
   LayerId,
+  MoneyFlowFeature,
   SupplyArcFeature,
+  TradeArcFeature,
 } from '../types';
 
 const GLOBE_VIEW = new GlobeView({
@@ -156,11 +160,15 @@ export function Globe() {
     const baseLayers = buildBasemapLayers(land, countries);
     const active = new Set(activeLayers as LayerId[]);
 
-    // Render order: basemap → regulatory fills → facility halos/cores → supply arcs.
-    // deck.gl picking respects stack order so facility cores win overlap.
+    // Render order: basemap → regulatory fills → trade arcs (background) →
+    // supply arcs (narrative) → facility halos/cores → money flow bubbles.
+    // deck.gl picking respects stack order so money bubbles and facility
+    // cores sit on top and win overlaps.
     const regulatoryLayers: Layer[] = [];
     const facilityLayers: Layer[] = [];
     const supplyLayers: Layer[] = [];
+    const tradeLayers: Layer[] = [];
+    const moneyLayers: Layer[] = [];
 
     for (const meta of LAYERS) {
       if (!active.has(meta.id)) continue;
@@ -198,10 +206,38 @@ export function Globe() {
             onHover,
           }),
         );
+      } else if (meta.kind === 'trade') {
+        tradeLayers.push(
+          ...buildTradeLayers({
+            features: fc.features as unknown as TradeArcFeature[],
+            selectedId,
+            pulsePhase,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'money') {
+        moneyLayers.push(
+          ...buildMoneyLayers({
+            features: fc.features as unknown as MoneyFlowFeature[],
+            selectedId,
+            hoveredId,
+            pulsePhase,
+            onClick,
+            onHover,
+          }),
+        );
       }
     }
 
-    return [...baseLayers, ...regulatoryLayers, ...facilityLayers, ...supplyLayers];
+    return [
+      ...baseLayers,
+      ...regulatoryLayers,
+      ...tradeLayers,
+      ...supplyLayers,
+      ...facilityLayers,
+      ...moneyLayers,
+    ];
   }, [
     land,
     countries,

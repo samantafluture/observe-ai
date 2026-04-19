@@ -9,11 +9,25 @@ export type LayerId =
   | 'ai-facilities'
   | 'fabs'
   | 'regulatory-zones'
-  | 'supply-arcs';
+  | 'supply-arcs'
+  | 'money-flow'
+  | 'supply-trade';
 
-export type LayerKind = 'facility' | 'regulatory' | 'supply';
+export type LayerKind = 'facility' | 'regulatory' | 'supply' | 'money' | 'trade';
 
-export type LayerCategory = 'compute' | 'ai' | 'semiconductor' | 'regulatory' | 'supply';
+export type LayerCategory =
+  | 'compute'
+  | 'ai'
+  | 'semiconductor'
+  | 'regulatory'
+  | 'supply'
+  | 'money';
+
+export interface Provenance {
+  sources: string[];
+  updated: string;
+  confidence: number;
+}
 
 export type Regime =
   | 'strict'
@@ -35,6 +49,7 @@ export interface FacilityProperties {
   // Fab-specific (optional)
   node_nm?: number;
   wafer_size_mm?: number;
+  provenance?: Provenance;
 }
 
 export type FacilityFeature = Feature<Point, FacilityProperties>;
@@ -46,6 +61,7 @@ export interface RegulatoryProperties {
   country_name: string;
   regime: Regime;
   key_policies?: string[];
+  provenance?: Provenance;
 }
 
 export type RegulatoryFeature = Feature<Polygon | MultiPolygon, RegulatoryProperties>;
@@ -57,12 +73,45 @@ export interface SupplyArcProperties {
   to_id: string;
   weight?: number;
   label?: string;
+  provenance?: Provenance;
 }
 
 export type SupplyArcFeature = Feature<LineString, SupplyArcProperties>;
 export type SupplyArcCollection = FeatureCollection<LineString, SupplyArcProperties>;
 
-export type AnyFeature = FacilityFeature | RegulatoryFeature | SupplyArcFeature;
+export interface MoneyFlowProperties {
+  id: string;
+  country_iso: string;
+  country_name: string;
+  year: number;
+  amount_usd: number;
+  provenance?: Provenance;
+}
+
+export type MoneyFlowFeature = Feature<Point, MoneyFlowProperties>;
+export type MoneyFlowCollection = FeatureCollection<Point, MoneyFlowProperties>;
+
+export interface TradeArcProperties {
+  id: string;
+  from_iso: string;
+  to_iso: string;
+  from_name: string;
+  to_name: string;
+  year: number;
+  value_usd: number;
+  hs_code: string;
+  provenance?: Provenance;
+}
+
+export type TradeArcFeature = Feature<LineString, TradeArcProperties>;
+export type TradeArcCollection = FeatureCollection<LineString, TradeArcProperties>;
+
+export type AnyFeature =
+  | FacilityFeature
+  | RegulatoryFeature
+  | SupplyArcFeature
+  | MoneyFlowFeature
+  | TradeArcFeature;
 
 export type AnyCollection = FeatureCollection<Geometry, Record<string, unknown>>;
 
@@ -88,7 +137,22 @@ export interface SupplyLayerMeta extends LayerMetaBase {
   color: [number, number, number];
 }
 
-export type LayerMeta = FacilityLayerMeta | RegulatoryLayerMeta | SupplyLayerMeta;
+export interface MoneyLayerMeta extends LayerMetaBase {
+  kind: 'money';
+  color: [number, number, number];
+}
+
+export interface TradeLayerMeta extends LayerMetaBase {
+  kind: 'trade';
+  color: [number, number, number];
+}
+
+export type LayerMeta =
+  | FacilityLayerMeta
+  | RegulatoryLayerMeta
+  | SupplyLayerMeta
+  | MoneyLayerMeta
+  | TradeLayerMeta;
 
 export interface GlobeViewState {
   longitude: number;

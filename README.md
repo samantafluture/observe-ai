@@ -1,126 +1,132 @@
-# AI Globe — Phase 1
+# AI Globe — Phase 3
 
-> The physical map of AI: where the compute actually lives.
+> The physical map of AI — now with an automated data pipeline and the first
+> economic layers on top of the infrastructure.
 
-Interactive deck.gl globe rendering ~130 cloud data centers (Google, AWS, Azure)
-plus ~25 principal AI lab locations on a phosphor-green CRT basemap.
-
-This is **Phase 1** of a longer build laid out in
-`docs/specs/gods-eye-view.md` (in the blog repo). The five-layer architecture
-(input → processing → storage → visualization → output) starts here with a
-static-GeoJSON storage layer and a single visualization. Later phases add
-fabs, regulatory zones, talent flows, money flows, supply chains, and
-temporal animation.
+Interactive deck.gl globe. **Phase 3** adds an automated Python pipeline, a
+weekly refresh cron, per-feature provenance, two new layers (**private AI
+investment** and **HS 8542 integrated-circuit trade flows**), and an opt-in
+DuckDB-WASM Parquet path alongside the default static GeoJSON.
 
 ## Stack
 
 | Layer        | Choice                                                      |
 | ------------ | ----------------------------------------------------------- |
 | Build        | Vite 6 + React 19 + TypeScript 5                            |
-| Visualization| `@deck.gl/core` `_GlobeView` 9.3 (resolution 5)             |
+| Visualization| `@deck.gl/core` `_GlobeView` 9 (resolution 5)               |
 | State        | Zustand 5                                                   |
-| URL state    | nuqs 2 (`lng`, `lat`, `z`, `layers`, `sel`)                 |
+| URL state    | nuqs 2 (`lng`, `lat`, `z`, `layers`, `sel`, `source`)       |
 | Styling      | Tailwind CSS 4 (via `@tailwindcss/vite`)                    |
-| Data         | Static GeoJSON in `public/data/`                            |
-| Basemap      | Natural Earth 110m (countries + land), public domain        |
+| Data (default)| Static GeoJSON in `public/data/`                           |
+| Data (opt-in) | Parquet in `public/data/parquet/` via DuckDB-WASM          |
+| Pipeline     | Python 3.12 (`pipeline/`) — weekly GitHub Actions cron      |
+| Basemap      | Natural Earth 110m, public domain                           |
 
 ## Run
 
 ```sh
 pnpm install
 pnpm dev          # http://localhost:5173
-pnpm build        # tsc -b && vite build  →  ./dist
+pnpm build
 pnpm typecheck
+
+# Pipeline
+pip install -r pipeline/requirements.txt
+python -m pipeline.run --offline   # regenerate data from snapshots
+python -m pytest pipeline/tests -q
 ```
 
-## What's in Phase 1
+## Phase 3 highlights
 
-- **Globe basemap** — Natural Earth 110m polygons drawn dark phosphor-green over
-  black. Country outlines in brighter phosphor. Spherical projection via
-  `_GlobeView`.
-- **Four facility layers** — Google Cloud regions (40), AWS regions (29), Azure
-  regions (37), AI labs (25). Each is its own `ScatterplotLayer` pair (halo +
-  core) for the glow effect described in the spec.
-- **Pulse + auto-rotate** — single `requestAnimationFrame` loop drives both a
-  `radiusScale` oscillation (one GPU uniform) and the auto-rotate longitude
-  delta. Auto-rotation pauses on user drag.
-- **Click → side panel** — pickable core layer; selected feature shows a
-  detail panel with operator, region, country, coordinates.
-- **Hover → tooltip** — minimal floating tooltip follows the cursor.
-- **Layer toggles** — sidebar checkboxes per layer, with feature counts.
-- **URL state** — every meaningful piece of state is round-trippable via the
-  query string (great for embeds and shareable links).
-- **Mobile** — sidebar is left-anchored on `md+`, detail panel becomes a
-  bottom sheet on small screens.
+- **Python pipeline** (`pipeline/`) with source-specific fetchers (Google
+  Cloud, AWS, Azure, Wikipedia fabs, CHIPS Act, OECD.AI, Stanford HAI, UN
+  Comtrade). Cached Nominatim geocoder, fuzzy entity dedup
+  (`thefuzz.token_set_ratio` + numeric-token preservation), per-feature
+  provenance, validation invariants, dual GeoJSON + Parquet export.
+- **Weekly cron** at `.github/workflows/pipeline.yml` — runs tests, runs
+  pipeline, opens a PR with the diff on `public/data/**`. API keys
+  (`CRUNCHBASE_API_KEY`, `COMTRADE_API_KEY`) read from repo secrets.
+- **Private AI investment layer** — country-level 2024 figures from Stanford
+  HAI AI Index 2025, rendered as sized glowing bubbles on capitals.
+  sqrt-scaled radius so Israel and the US coexist on the same screen.
+- **IC trade layer** — bilateral HS 8542 flows from UN Comtrade / OEC.world.
+  Rendered as log-scaled cool-blue arcs behind the curated supply arcs.
+- **Provenance** — every emitted feature carries `{ sources, updated,
+  confidence }`. The detail panel shows a clickable source list.
+- **DuckDB-WASM opt-in** — append `?source=parquet` to query Parquet mirrors
+  in the browser. Lazy-loaded (~4 MB) so default loads aren't penalized.
 
-### Shareable URL parameters
+## Shareable URL parameters
 
-| Param   | Type           | Default                 |
-| ------- | -------------- | ----------------------- |
-| `lng`   | float          | `-40`                   |
-| `lat`   | float          | `20`                    |
-| `z`     | float (zoom)   | `0.8`                   |
-| `layers`| comma list     | all four layer IDs      |
-| `sel`   | facility id    | none                    |
+| Param    | Type           | Default                 |
+| -------- | -------------- | ----------------------- |
+| `lng`    | float          | `-40`                   |
+| `lat`    | float          | `20`                    |
+| `z`      | float (zoom)   | `0.8`                   |
+| `layers` | comma list     | all layer IDs           |
+| `sel`    | feature id     | none                    |
+| `source` | `geojson` or `parquet` | `geojson`       |
 
-Example: `/?lng=121&lat=24.8&z=4&layers=datacenters-google,ai-facilities&sel=ai-deepmind-london`
+Example: `/?lng=121&lat=24.8&z=4&layers=fabs,supply-trade&sel=trade-TW-US-2023`
 
 ## Project structure
 
 ```
 public/data/
-  ne_110m_countries.geojson      Natural Earth basemap (committed)
-  ne_110m_land.geojson           Natural Earth landmass (committed)
-  datacenters-google.geojson     Phase 1 dataset
-  datacenters-aws.geojson        Phase 1 dataset
-  datacenters-azure.geojson      Phase 1 dataset
-  ai-facilities.geojson          Phase 1 dataset
+  *.geojson                      Canonical outputs (pipeline-maintained)
+  parquet/*.parquet              DuckDB-WASM mirrors
 src/
   components/
-    Globe.tsx                    DeckGL + GlobeView + rAF loop
-    layers/basemap.ts            Land + countries factory
-    layers/facilities.ts         Halo + core + selection-ring factory
-    controls/LayerToggles.tsx
-    controls/AutoRotateToggle.tsx
-    ui/Header.tsx
-    ui/Tooltip.tsx
-    ui/DetailPanel.tsx
-    ui/Legend.tsx
+    Globe.tsx
+    layers/
+      basemap.ts facilities.ts regulatory.ts
+      supply.ts  money.ts       trade.ts
+    controls/ ui/
   hooks/
-    useBasemapData.ts            Loads Natural Earth GeoJSON
-    useFacilityData.ts           Loads four facility layers in parallel
-    useUrlState.ts               nuqs-backed view + layers + selection
-  store/globeStore.ts            Zustand: selected, hovered, autoRotate
-  utils/colors.ts                Phosphor palette + per-operator accents
-  utils/constants.ts             Layer registry, view defaults
-  types/index.ts                 Facility shapes
-pipeline/                        (Phase 3) Python ingest/normalize/geocode
-scripts/                         (Phase 4+) screenshot, deploy helpers
+    useBasemapData.ts
+    useDataSource.ts              ?source= URL flag
+    useFacilityData.ts            dispatches by source
+    useFacilityDataParquet.ts     DuckDB-WASM path
+    useUrlState.ts
+  store/globeStore.ts
+  utils/
+    colors.ts constants.ts duckdb.ts format.ts
+  types/index.ts
+pipeline/
+  core/        schema / provenance / geocode / dedupe / validate / export
+  sources/     per-source fetchers + HTTP helper
+  tests/       unit tests for schema / dedupe / validate
+  run.py       orchestrator; `python -m pipeline.run [--offline] [--only <name>]`
+  README.md
+.github/workflows/pipeline.yml    weekly refresh cron
 ```
 
 ## Data provenance
 
-All Phase 1 coordinates are public-source metro centroids for cloud regions
-plus manually curated company HQ locations. Each `*.geojson` carries a
-top-level `metadata.source` field documenting where the facts came from. No
-API keys required. Phase 3 replaces this manual curation with a Python
-pipeline driven by GitHub Actions cron.
+Every feature carries:
+
+```json
+"provenance": {
+  "sources": ["https://cloud.google.com/about/locations"],
+  "updated": "2026-04-19",
+  "confidence": 0.95
+}
+```
+
+Rendered in the detail panel as a source list with live-updated dates and a
+confidence score. Confidence 1.0 = curated/manual; 0.7-0.95 = live-scraped;
+<0.7 = best-effort derivation.
 
 ## Known constraints (deck.gl GlobeView)
 
 - No camera pitch/bearing — the globe always shows north up.
-- No `HeatmapLayer` / `ContourLayer` / `TerrainLayer` — they don't run on
-  the sphere projection. Heatmap-style overlays are deferred (see spec).
-- `lineWidth` and `getRadius` use meters in `LNGLAT` coordinate system,
-  with `*MinPixels` / `*MaxPixels` clamps so dots stay legible at any zoom.
+- No `HeatmapLayer` / `ContourLayer` / `TerrainLayer`.
+- `lineWidth` and `getRadius` are meters in `LNGLAT`, clamped by
+  `*MinPixels` / `*MaxPixels` so dots stay legible at any zoom.
 
 ## Roadmap
 
-This repo will grow into the full spec. Next:
-
-- **Phase 2** — Add fabs (~80, Wikipedia + CHIPS Act), regulatory zone
-  polygons, prototype `ArcLayer` (great-circle) for fab → DC supply links.
-- **Phase 3** — Python pipeline + Cloudflare R2 + DuckDB-WASM in browser.
-- **Phase 4** — `DataFilterExtension` timeline scrubber + `TripsLayer`
-  animated flows.
-- **Phase 5** — Cross-layer correlation engine.
+- **Phase 4** — `DataFilterExtension` timeline scrubber, `TripsLayer` flows,
+  patent/export-control/co-authorship layers, absence-detection signals.
+- **Phase 5** — cross-layer correlation engine, energy/water ESG overlays,
+  comparative globe views, embeddable mini-globes.

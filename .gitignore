@@ -12,3 +12,9 @@ dist
 .vite
 coverage
 *.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
