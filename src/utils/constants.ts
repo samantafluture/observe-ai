@@ -53,10 +53,26 @@ export const LAYERS: LayerMeta[] = [
   {
     kind: 'supply',
     id: 'supply-arcs',
-    label: 'Supply Chain',
+    label: 'Supply Chain (curated)',
     category: 'supply',
     url: '/data/supply-arcs.geojson',
     color: [180, 220, 255],
+  },
+  {
+    kind: 'trade',
+    id: 'supply-trade',
+    label: 'IC Trade (HS 8542)',
+    category: 'supply',
+    url: '/data/supply-trade.geojson',
+    color: [150, 200, 240],
+  },
+  {
+    kind: 'money',
+    id: 'money-flow',
+    label: 'Private AI Investment',
+    category: 'money',
+    url: '/data/money-flow.geojson',
+    color: [255, 220, 120],
   },
 ];
 
@@ -68,6 +84,7 @@ export const CATEGORIES: { id: LayerCategory; label: string }[] = [
   { id: 'semiconductor', label: 'Semiconductors' },
   { id: 'regulatory', label: 'Regulation' },
   { id: 'supply', label: 'Supply chain' },
+  { id: 'money', label: 'Money flow' },
 ];
 
 export const BASEMAP_COUNTRIES_URL = '/data/ne_110m_countries.geojson';

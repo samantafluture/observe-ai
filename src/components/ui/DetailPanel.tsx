@@ -4,10 +4,14 @@ import { useUrlSelected } from '../../hooks/useUrlState';
 import { useFacilityData } from '../../hooks/useFacilityData';
 import { operatorColor, REGIME_COLOR, REGIME_LABEL } from '../../utils/colors';
 import { LAYERS } from '../../utils/constants';
+import { formatUsd } from '../../utils/format';
 import type {
   FacilityFeature,
+  MoneyFlowFeature,
+  Provenance,
   RegulatoryFeature,
   SupplyArcFeature,
+  TradeArcFeature,
 } from '../../types';
 
 export function DetailPanel() {
@@ -37,6 +41,10 @@ export function DetailPanel() {
     void setUrlSelected(null);
   };
 
+  const id = (feature.properties as { id?: string } | undefined)?.id ?? '';
+  const isMoney = id.startsWith('money-');
+  const isTrade = id.startsWith('trade-');
+
   return (
     <aside
       className="
@@ -50,17 +58,57 @@ export function DetailPanel() {
       "
     >
       {feature.geometry.type === 'Point' ? (
-        <FacilityDetail feature={feature as FacilityFeature} onClose={onClose} />
+        isMoney ? (
+          <MoneyDetail feature={feature as MoneyFlowFeature} onClose={onClose} />
+        ) : (
+          <FacilityDetail feature={feature as FacilityFeature} onClose={onClose} />
+        )
       ) : feature.geometry.type === 'LineString' ? (
-        <ArcDetail
-          feature={feature as SupplyArcFeature}
-          onClose={onClose}
-          pointsById={pointsById}
-        />
+        isTrade ? (
+          <TradeDetail feature={feature as TradeArcFeature} onClose={onClose} />
+        ) : (
+          <ArcDetail
+            feature={feature as SupplyArcFeature}
+            onClose={onClose}
+            pointsById={pointsById}
+          />
+        )
       ) : (
         <RegulatoryDetail feature={feature as RegulatoryFeature} onClose={onClose} />
       )}
     </aside>
+  );
+}
+
+function ProvenanceBlock({ provenance }: { provenance?: Provenance }) {
+  if (!provenance || !provenance.sources?.length) return null;
+  return (
+    <div className="mt-4 border-t border-phosphor-900 pt-3">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-phosphor-800">
+        <span>Provenance</span>
+        <span className="tabular-nums text-phosphor-700">
+          {provenance.updated} · conf {provenance.confidence.toFixed(2)}
+        </span>
+      </div>
+      <ul className="mt-1 flex flex-col gap-0.5 text-[11px]">
+        {provenance.sources.map((s) => (
+          <li key={s} className="truncate text-phosphor-500">
+            {s.startsWith('http') ? (
+              <a
+                href={s}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="hover:text-phosphor-300 underline decoration-phosphor-900 underline-offset-2"
+              >
+                {s}
+              </a>
+            ) : (
+              s
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -172,6 +220,7 @@ function FacilityDetail({
           {lat.toFixed(3)}, {lng.toFixed(3)}
         </dd>
       </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
     </>
   );
 }
@@ -233,6 +282,7 @@ function RegulatoryDetail({
           </ul>
         </div>
       )}
+      <ProvenanceBlock provenance={feature.properties.provenance} />
     </>
   );
 }
@@ -299,6 +349,98 @@ function ArcDetail({
       {label && (
         <div className="mt-3 text-xs text-phosphor-400 leading-snug">{label}</div>
       )}
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function MoneyDetail({
+  feature,
+  onClose,
+}: {
+  feature: MoneyFlowFeature;
+  onClose: () => void;
+}) {
+  const { country_name, country_iso, year, amount_usd } = feature.properties;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: 'rgb(255,220,120)',
+                boxShadow: '0 0 8px rgb(255,220,120)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              Private AI investment
+            </span>
+          </div>
+          <h2 className="mt-1 truncate text-base font-medium text-phosphor-200">
+            {country_name}
+          </h2>
+          <div className="text-xs text-phosphor-400">{country_iso}</div>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">Year</dt>
+        <dd className="text-phosphor-300 font-mono">{year}</dd>
+        <dt className="text-phosphor-700">Amount</dt>
+        <dd className="text-phosphor-300 font-mono">{formatUsd(amount_usd)}</dd>
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function TradeDetail({
+  feature,
+  onClose,
+}: {
+  feature: TradeArcFeature;
+  onClose: () => void;
+}) {
+  const { from_name, to_name, from_iso, to_iso, year, value_usd, hs_code } =
+    feature.properties;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-4 rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, rgb(150,200,240), rgb(210,235,255))',
+                boxShadow: '0 0 6px rgba(150,200,240,0.6)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              IC trade · HS {hs_code}
+            </span>
+          </div>
+          <h2 className="mt-1 text-base font-medium text-phosphor-200 leading-tight">
+            {from_name}
+            <span className="mx-1.5 text-phosphor-600">→</span>
+            {to_name}
+          </h2>
+          <div className="text-xs text-phosphor-400">
+            {from_iso} → {to_iso}
+          </div>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">Year</dt>
+        <dd className="text-phosphor-300 font-mono">{year}</dd>
+        <dt className="text-phosphor-700">Value</dt>
+        <dd className="text-phosphor-300 font-mono">{formatUsd(value_usd)}</dd>
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
     </>
   );
 }
