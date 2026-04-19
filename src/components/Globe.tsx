@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DeckGL from '@deck.gl/react';
 import { _GlobeView as GlobeView } from '@deck.gl/core';
-import type { PickingInfo, MapViewState } from '@deck.gl/core';
+import type { PickingInfo, MapViewState, Layer } from '@deck.gl/core';
 
 import { useGlobeStore } from '../store/globeStore';
 import { useBasemapData } from '../hooks/useBasemapData';
@@ -9,8 +9,15 @@ import { useFacilityData } from '../hooks/useFacilityData';
 import { useUrlViewState, useUrlLayers, useUrlSelected } from '../hooks/useUrlState';
 import { buildBasemapLayers } from './layers/basemap';
 import { buildFacilityLayers } from './layers/facilities';
+import { buildRegulatoryLayer } from './layers/regulatory';
+import { buildSupplyLayers } from './layers/supply';
 import { AUTO_ROTATE_DEG_PER_SEC, GLOBE_RESOLUTION, INITIAL_VIEW, LAYERS } from '../utils/constants';
-import type { FacilityFeature, LayerId } from '../types';
+import type {
+  AnyFeature,
+  FacilityFeature,
+  LayerId,
+  SupplyArcFeature,
+} from '../types';
 
 const GLOBE_VIEW = new GlobeView({
   id: 'globe',
@@ -22,8 +29,6 @@ export function Globe() {
   const { countries, land } = useBasemapData();
   const { data: facilities } = useFacilityData();
 
-  // URL-seeded view state — then controlled locally to allow rAF updates
-  // without thrashing the URL every frame.
   const {
     longitude: urlLng,
     latitude: urlLat,
@@ -55,8 +60,8 @@ export function Globe() {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
 
-  // Reconstruct the selected feature from URL (?sel=) once data has loaded.
-  // After that, Zustand is the source of truth.
+  // Hydrate selection from URL once data has loaded. Walks every loaded
+  // collection regardless of kind so polygons and arcs survive deep links.
   const hydratedRef = useRef(false);
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -64,18 +69,18 @@ export function Globe() {
     for (const layer of LAYERS) {
       const fc = facilities[layer.id];
       if (!fc) continue;
-      const found = (fc.features as FacilityFeature[]).find(
-        (f) => f.properties.id === urlSelected,
+      const found = (fc.features as unknown as AnyFeature[]).find(
+        (f) => (f.properties as { id?: string })?.id === urlSelected,
       );
       if (found) {
-        setSelected(found as FacilityFeature);
+        setSelected(found);
         hydratedRef.current = true;
         return;
       }
     }
   }, [urlSelected, facilities, setSelected]);
 
-  // rAF loop drives both pulse and auto-rotation.
+  // rAF loop drives pulse and optional auto-rotation.
   const [pulsePhase, setPulsePhase] = useState(0);
   useEffect(() => {
     let frameId = 0;
@@ -121,10 +126,11 @@ export function Globe() {
 
   const onClick = useCallback(
     (info: PickingInfo) => {
-      const obj = info.object as FacilityFeature | undefined;
-      if (obj?.properties?.id) {
-        setSelected(obj);
-        void setUrlSelected(obj.properties.id);
+      const obj = info.object as AnyFeature | undefined;
+      const id = (obj?.properties as { id?: string } | undefined)?.id;
+      if (id) {
+        setSelected(obj as AnyFeature);
+        void setUrlSelected(id);
       } else {
         setSelected(null);
         void setUrlSelected(null);
@@ -135,9 +141,10 @@ export function Globe() {
 
   const onHover = useCallback(
     (info: PickingInfo) => {
-      const obj = info.object as FacilityFeature | undefined;
-      if (obj?.properties?.id) {
-        setHovered(obj, info.x, info.y);
+      const obj = info.object as AnyFeature | undefined;
+      const id = (obj?.properties as { id?: string } | undefined)?.id;
+      if (id) {
+        setHovered(obj as AnyFeature, info.x, info.y);
       } else {
         setHovered(null, 0, 0);
       }
@@ -147,22 +154,54 @@ export function Globe() {
 
   const layers = useMemo(() => {
     const baseLayers = buildBasemapLayers(land, countries);
-    const facilityLayers = LAYERS.filter((l) => (activeLayers as LayerId[]).includes(l.id)).flatMap(
-      (l) => {
-        const fc = facilities[l.id];
-        if (!fc) return [];
-        return buildFacilityLayers({
-          layer: l,
-          features: fc.features as FacilityFeature[],
-          selectedId,
-          hoveredId,
-          pulsePhase,
-          onClick,
-          onHover,
-        });
-      },
-    );
-    return [...baseLayers, ...facilityLayers];
+    const active = new Set(activeLayers as LayerId[]);
+
+    // Render order: basemap → regulatory fills → facility halos/cores → supply arcs.
+    // deck.gl picking respects stack order so facility cores win overlap.
+    const regulatoryLayers: Layer[] = [];
+    const facilityLayers: Layer[] = [];
+    const supplyLayers: Layer[] = [];
+
+    for (const meta of LAYERS) {
+      if (!active.has(meta.id)) continue;
+      const fc = facilities[meta.id];
+      if (!fc) continue;
+
+      if (meta.kind === 'facility') {
+        facilityLayers.push(
+          ...buildFacilityLayers({
+            layer: meta,
+            features: fc.features as unknown as FacilityFeature[],
+            selectedId,
+            hoveredId,
+            pulsePhase,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'regulatory') {
+        regulatoryLayers.push(
+          ...buildRegulatoryLayer({
+            data: fc,
+            selectedId,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'supply') {
+        supplyLayers.push(
+          ...buildSupplyLayers({
+            features: fc.features as unknown as SupplyArcFeature[],
+            selectedId,
+            pulsePhase,
+            onClick,
+            onHover,
+          }),
+        );
+      }
+    }
+
+    return [...baseLayers, ...regulatoryLayers, ...facilityLayers, ...supplyLayers];
   }, [
     land,
     countries,

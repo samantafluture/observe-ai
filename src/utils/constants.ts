@@ -1,8 +1,9 @@
-import type { LayerMeta, LayerId } from '../types';
-import { OPERATOR_COLOR } from './colors';
+import type { LayerMeta, LayerId, LayerCategory } from '../types';
+import { OPERATOR_COLOR, REGIME_COLOR } from './colors';
 
 export const LAYERS: LayerMeta[] = [
   {
+    kind: 'facility',
     id: 'datacenters-google',
     label: 'Google Cloud',
     category: 'compute',
@@ -10,6 +11,7 @@ export const LAYERS: LayerMeta[] = [
     color: OPERATOR_COLOR.Google,
   },
   {
+    kind: 'facility',
     id: 'datacenters-aws',
     label: 'AWS',
     category: 'compute',
@@ -17,6 +19,7 @@ export const LAYERS: LayerMeta[] = [
     color: OPERATOR_COLOR.AWS,
   },
   {
+    kind: 'facility',
     id: 'datacenters-azure',
     label: 'Azure',
     category: 'compute',
@@ -24,15 +27,48 @@ export const LAYERS: LayerMeta[] = [
     color: OPERATOR_COLOR.Azure,
   },
   {
+    kind: 'facility',
     id: 'ai-facilities',
     label: 'AI Labs',
     category: 'ai',
     url: '/data/ai-facilities.geojson',
     color: [200, 255, 160],
   },
+  {
+    kind: 'facility',
+    id: 'fabs',
+    label: 'Semiconductor Fabs',
+    category: 'semiconductor',
+    url: '/data/fabs.geojson',
+    color: [255, 200, 120],
+  },
+  {
+    kind: 'regulatory',
+    id: 'regulatory-zones',
+    label: 'Regulatory Zones',
+    category: 'regulatory',
+    url: '/data/regulatory-zones.geojson',
+    palette: REGIME_COLOR,
+  },
+  {
+    kind: 'supply',
+    id: 'supply-arcs',
+    label: 'Supply Chain',
+    category: 'supply',
+    url: '/data/supply-arcs.geojson',
+    color: [180, 220, 255],
+  },
 ];
 
 export const LAYER_IDS: LayerId[] = LAYERS.map((l) => l.id);
+
+export const CATEGORIES: { id: LayerCategory; label: string }[] = [
+  { id: 'compute', label: 'Compute' },
+  { id: 'ai', label: 'AI labs' },
+  { id: 'semiconductor', label: 'Semiconductors' },
+  { id: 'regulatory', label: 'Regulation' },
+  { id: 'supply', label: 'Supply chain' },
+];
 
 export const BASEMAP_COUNTRIES_URL = '/data/ne_110m_countries.geojson';
 export const BASEMAP_LAND_URL = '/data/ne_110m_land.geojson';

@@ -1,16 +1,16 @@
 import { create } from 'zustand';
-import type { FacilityFeature } from '../types';
+import type { AnyFeature } from '../types';
 
 interface GlobeState {
   selectedId: string | null;
-  selectedFeature: FacilityFeature | null;
+  selectedFeature: AnyFeature | null;
   hoveredId: string | null;
-  hoveredFeature: FacilityFeature | null;
+  hoveredFeature: AnyFeature | null;
   hoverX: number;
   hoverY: number;
   autoRotate: boolean;
-  setSelected: (feature: FacilityFeature | null) => void;
-  setHovered: (feature: FacilityFeature | null, x: number, y: number) => void;
+  setSelected: (feature: AnyFeature | null) => void;
+  setHovered: (feature: AnyFeature | null, x: number, y: number) => void;
   setAutoRotate: (value: boolean) => void;
   clearSelection: () => void;
 }
