@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { FacilityCollection, LayerId } from '../types';
+import type { FeatureCollection, Geometry } from 'geojson';
+import type { LayerId } from '../types';
 import { LAYERS } from '../utils/constants';
 
-export type FacilityDataByLayer = Record<LayerId, FacilityCollection | null>;
+export type LayerCollection = FeatureCollection<Geometry, Record<string, unknown>>;
+export type FacilityDataByLayer = Record<LayerId, LayerCollection | null>;
 
 const initial: FacilityDataByLayer = Object.fromEntries(
   LAYERS.map((l) => [l.id, null]),
@@ -25,7 +27,7 @@ export function useFacilityData(): {
           LAYERS.map(async (layer) => {
             const res = await fetch(layer.url);
             if (!res.ok) throw new Error(`Failed to load ${layer.url}: ${res.status}`);
-            const json = (await res.json()) as FacilityCollection;
+            const json = (await res.json()) as LayerCollection;
             return [layer.id, json] as const;
           }),
         );

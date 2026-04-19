@@ -29,7 +29,7 @@ export default function App() {
 
       {/* Attribution */}
       <div className="pointer-events-none absolute right-4 bottom-4 z-10 text-[10px] text-phosphor-800 md:right-6 md:bottom-6">
-        Basemap: Natural Earth · Data: Google / AWS / Azure public sources
+        Basemap: Natural Earth · Compute: Google / AWS / Azure · Fabs: Wikipedia + CHIPS Act · Regulation: OECD.AI / Stanford HAI
       </div>
     </div>
   );

@@ -40,6 +40,18 @@ export const OPERATOR_COLOR: Record<string, RGB> = {
   Tencent: [80, 180, 230],
   'Zhipu AI': [180, 130, 255],
   'Moonshot AI': [220, 220, 160],
+  // Fab operators — muted amber/copper family, distinct from AI/compute greens
+  TSMC: [255, 180, 90],
+  Samsung: [230, 160, 110],
+  Intel: [200, 150, 80],
+  GlobalFoundries: [220, 190, 130],
+  SMIC: [210, 130, 80],
+  Micron: [240, 200, 120],
+  UMC: [190, 140, 90],
+  'Texas Instruments': [210, 165, 95],
+  'SK Hynix': [230, 175, 120],
+  Infineon: [195, 150, 100],
+  STMicroelectronics: [225, 170, 105],
 };
 
 export const FALLBACK_ACCENT: RGB = [120, 255, 180];
@@ -51,3 +63,22 @@ export function operatorColor(operator: string): RGB {
 export function withAlpha(rgb: RGB, alpha: number): RGBA {
   return [rgb[0], rgb[1], rgb[2], alpha];
 }
+
+// Regulatory regime palette. Cool blue (strict), dim yellow (exec-order),
+// soft red (state-directed), violet (emerging), faded green (minimal).
+// Fills render at low alpha (~40) so country tints sit under dots.
+export const REGIME_COLOR = {
+  strict: [90, 150, 220],
+  'executive-order': [220, 200, 110],
+  'state-directed': [220, 110, 110],
+  emerging: [180, 140, 220],
+  minimal: [120, 170, 130],
+} as const satisfies Record<string, RGB>;
+
+export const REGIME_LABEL: Record<keyof typeof REGIME_COLOR, string> = {
+  strict: 'Strict',
+  'executive-order': 'Executive order',
+  'state-directed': 'State-directed',
+  emerging: 'Emerging',
+  minimal: 'Minimal',
+};
