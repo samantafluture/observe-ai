@@ -7,7 +7,7 @@ so the CI workflow surfaces failures loudly.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from .schema import Facility, MoneyFlow, TradeArc
+from .schema import CoauthorArc, ExportControl, Facility, MoneyFlow, Patent, TradeArc
 
 
 class ValidationError(RuntimeError):
@@ -47,6 +47,35 @@ def validate_trade(records: list[TradeArc]) -> None:
     for r in records:
         if r.value_usd < 0:
             raise ValidationError(f"{r.id}: negative value_usd")
+        _check_coords(r.from_lng, r.from_lat, r.id)
+        _check_coords(r.to_lng, r.to_lat, r.id)
+    _check_unique_ids(r.id for r in records)
+
+
+def validate_patents(records: list[Patent]) -> None:
+    for r in records:
+        if r.count < 0:
+            raise ValidationError(f"{r.id}: negative count")
+        if r.year < 1900 or r.year > 2100:
+            raise ValidationError(f"{r.id}: implausible year {r.year}")
+        _check_coords(r.lng, r.lat, r.id)
+    _check_unique_ids(r.id for r in records)
+
+
+def validate_export_controls(records: list[ExportControl]) -> None:
+    for r in records:
+        if not r.name or not r.list_name:
+            raise ValidationError(f"export-control missing required fields: {r}")
+        if r.listed_year < 1900 or r.listed_year > 2100:
+            raise ValidationError(f"{r.id}: implausible listed_year")
+        _check_coords(r.lng, r.lat, r.id)
+    _check_unique_ids(r.id for r in records)
+
+
+def validate_coauthorship(records: list[CoauthorArc]) -> None:
+    for r in records:
+        if r.weight < 0:
+            raise ValidationError(f"{r.id}: negative weight")
         _check_coords(r.from_lng, r.from_lat, r.id)
         _check_coords(r.to_lng, r.to_lat, r.id)
     _check_unique_ids(r.id for r in records)

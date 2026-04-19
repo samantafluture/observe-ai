@@ -6,19 +6,30 @@ import type { PickingInfo, MapViewState, Layer } from '@deck.gl/core';
 import { useGlobeStore } from '../store/globeStore';
 import { useBasemapData } from '../hooks/useBasemapData';
 import { useFacilityData } from '../hooks/useFacilityData';
-import { useUrlViewState, useUrlLayers, useUrlSelected } from '../hooks/useUrlState';
+import {
+  useUrlViewState,
+  useUrlLayers,
+  useUrlSelected,
+  useUrlTimeline,
+} from '../hooks/useUrlState';
 import { buildBasemapLayers } from './layers/basemap';
 import { buildFacilityLayers } from './layers/facilities';
 import { buildRegulatoryLayer } from './layers/regulatory';
 import { buildSupplyLayers } from './layers/supply';
 import { buildMoneyLayers } from './layers/money';
 import { buildTradeLayers } from './layers/trade';
+import { buildPatentLayers } from './layers/patents';
+import { buildExportControlLayers } from './layers/exportControls';
+import { buildCoauthorshipLayers } from './layers/coauthorship';
 import { AUTO_ROTATE_DEG_PER_SEC, GLOBE_RESOLUTION, INITIAL_VIEW, LAYERS } from '../utils/constants';
 import type {
   AnyFeature,
+  CoauthorshipFeature,
+  ExportControlFeature,
   FacilityFeature,
   LayerId,
   MoneyFlowFeature,
+  PatentFeature,
   SupplyArcFeature,
   TradeArcFeature,
 } from '../types';
@@ -52,6 +63,8 @@ export function Globe() {
 
   const [activeLayers] = useUrlLayers();
   const [urlSelected, setUrlSelected] = useUrlSelected();
+  const { t0, t1, play } = useUrlTimeline();
+  const timeWindow = useMemo(() => ({ t0, t1 }), [t0, t1]);
 
   const selectedId = useGlobeStore((s) => s.selectedId);
   const hoveredId = useGlobeStore((s) => s.hoveredId);
@@ -84,8 +97,14 @@ export function Globe() {
     }
   }, [urlSelected, facilities, setSelected]);
 
-  // rAF loop drives pulse and optional auto-rotation.
+  // rAF loop drives pulse, optional auto-rotation, and (when the timeline is
+  // playing) the TripsLayer head along supply arcs.
   const [pulsePhase, setPulsePhase] = useState(0);
+  const [tripHead, setTripHead] = useState(0);
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  }, [play]);
   useEffect(() => {
     let frameId = 0;
     let last = performance.now();
@@ -93,6 +112,10 @@ export function Globe() {
       const dt = (now - last) / 1000;
       last = now;
       setPulsePhase((p) => (p + dt * 2) % (Math.PI * 2));
+      if (playRef.current) {
+        // Head loops 0→1 once per ~1.4s so a chip "trip" reads at a glance.
+        setTripHead((h) => (h + dt / 1.4) % 1);
+      }
       if (autoRotateRef.current) {
         setViewState((vs) => ({
           ...vs,
@@ -160,15 +183,18 @@ export function Globe() {
     const baseLayers = buildBasemapLayers(land, countries);
     const active = new Set(activeLayers as LayerId[]);
 
-    // Render order: basemap → regulatory fills → trade arcs (background) →
-    // supply arcs (narrative) → facility halos/cores → money flow bubbles.
-    // deck.gl picking respects stack order so money bubbles and facility
-    // cores sit on top and win overlaps.
+    // Render order: basemap → regulatory fills → coauthorship arcs →
+    // trade arcs → supply arcs (narrative) → patent halos → facility halos
+    // → export-control rings → money flow bubbles. Picking respects stack
+    // order so foreground markers win overlaps.
     const regulatoryLayers: Layer[] = [];
     const facilityLayers: Layer[] = [];
     const supplyLayers: Layer[] = [];
     const tradeLayers: Layer[] = [];
     const moneyLayers: Layer[] = [];
+    const patentLayers: Layer[] = [];
+    const exportControlLayers: Layer[] = [];
+    const coauthorshipLayers: Layer[] = [];
 
     for (const meta of LAYERS) {
       if (!active.has(meta.id)) continue;
@@ -183,6 +209,7 @@ export function Globe() {
             selectedId,
             hoveredId,
             pulsePhase,
+            timeWindow,
             onClick,
             onHover,
           }),
@@ -192,6 +219,7 @@ export function Globe() {
           ...buildRegulatoryLayer({
             data: fc,
             selectedId,
+            timeWindow,
             onClick,
             onHover,
           }),
@@ -202,6 +230,8 @@ export function Globe() {
             features: fc.features as unknown as SupplyArcFeature[],
             selectedId,
             pulsePhase,
+            timeWindow,
+            tripHead: play ? tripHead : null,
             onClick,
             onHover,
           }),
@@ -212,6 +242,7 @@ export function Globe() {
             features: fc.features as unknown as TradeArcFeature[],
             selectedId,
             pulsePhase,
+            timeWindow,
             onClick,
             onHover,
           }),
@@ -223,6 +254,42 @@ export function Globe() {
             selectedId,
             hoveredId,
             pulsePhase,
+            timeWindow,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'patent') {
+        patentLayers.push(
+          ...buildPatentLayers({
+            features: fc.features as unknown as PatentFeature[],
+            selectedId,
+            hoveredId,
+            pulsePhase,
+            timeWindow,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'export-control') {
+        exportControlLayers.push(
+          ...buildExportControlLayers({
+            features: fc.features as unknown as ExportControlFeature[],
+            selectedId,
+            hoveredId,
+            pulsePhase,
+            timeWindow,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'coauthorship') {
+        coauthorshipLayers.push(
+          ...buildCoauthorshipLayers({
+            features: fc.features as unknown as CoauthorshipFeature[],
+            selectedId,
+            pulsePhase,
+            timeWindow,
             onClick,
             onHover,
           }),
@@ -233,9 +300,12 @@ export function Globe() {
     return [
       ...baseLayers,
       ...regulatoryLayers,
+      ...coauthorshipLayers,
       ...tradeLayers,
       ...supplyLayers,
+      ...patentLayers,
       ...facilityLayers,
+      ...exportControlLayers,
       ...moneyLayers,
     ];
   }, [
@@ -246,6 +316,9 @@ export function Globe() {
     selectedId,
     hoveredId,
     pulsePhase,
+    timeWindow,
+    play,
+    tripHead,
     onClick,
     onHover,
   ]);

@@ -6,8 +6,11 @@ import { operatorColor, REGIME_COLOR, REGIME_LABEL } from '../../utils/colors';
 import { LAYERS } from '../../utils/constants';
 import { formatUsd } from '../../utils/format';
 import type {
+  CoauthorshipFeature,
+  ExportControlFeature,
   FacilityFeature,
   MoneyFlowFeature,
+  PatentFeature,
   Provenance,
   RegulatoryFeature,
   SupplyArcFeature,
@@ -44,13 +47,16 @@ export function DetailPanel() {
   const id = (feature.properties as { id?: string } | undefined)?.id ?? '';
   const isMoney = id.startsWith('money-');
   const isTrade = id.startsWith('trade-');
+  const isPatent = id.startsWith('patent-');
+  const isExportControl = id.startsWith('ec-');
+  const isCoauth = id.startsWith('coauth-');
 
   return (
     <aside
       className="
         pointer-events-auto
         absolute z-30
-        left-4 right-4 bottom-4
+        left-4 right-4 bottom-32
         md:left-auto md:right-6 md:top-24 md:bottom-auto
         md:w-[320px]
         rounded border border-phosphor-800/70 bg-black/85 p-4
@@ -60,12 +66,18 @@ export function DetailPanel() {
       {feature.geometry.type === 'Point' ? (
         isMoney ? (
           <MoneyDetail feature={feature as MoneyFlowFeature} onClose={onClose} />
+        ) : isPatent ? (
+          <PatentDetail feature={feature as PatentFeature} onClose={onClose} />
+        ) : isExportControl ? (
+          <ExportControlDetail feature={feature as ExportControlFeature} onClose={onClose} />
         ) : (
           <FacilityDetail feature={feature as FacilityFeature} onClose={onClose} />
         )
       ) : feature.geometry.type === 'LineString' ? (
         isTrade ? (
           <TradeDetail feature={feature as TradeArcFeature} onClose={onClose} />
+        ) : isCoauth ? (
+          <CoauthorshipDetail feature={feature as CoauthorshipFeature} onClose={onClose} />
         ) : (
           <ArcDetail
             feature={feature as SupplyArcFeature}
@@ -232,7 +244,7 @@ function RegulatoryDetail({
   feature: RegulatoryFeature;
   onClose: () => void;
 }) {
-  const { country_name, country_iso, regime, key_policies } = feature.properties;
+  const { country_name, country_iso, regime, key_policies, effective_year } = feature.properties;
   const rgb = REGIME_COLOR[regime];
   return (
     <>
@@ -266,6 +278,12 @@ function RegulatoryDetail({
         >
           {REGIME_LABEL[regime]}
         </dd>
+        {effective_year && (
+          <>
+            <dt className="text-phosphor-700">Effective</dt>
+            <dd className="text-phosphor-300 font-mono">{effective_year}</dd>
+          </>
+        )}
       </dl>
 
       {key_policies && key_policies.length > 0 && (
@@ -391,6 +409,138 @@ function MoneyDetail({
         <dd className="text-phosphor-300 font-mono">{year}</dd>
         <dt className="text-phosphor-700">Amount</dt>
         <dd className="text-phosphor-300 font-mono">{formatUsd(amount_usd)}</dd>
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function PatentDetail({
+  feature,
+  onClose,
+}: {
+  feature: PatentFeature;
+  onClose: () => void;
+}) {
+  const { city, country, year, count, top_assignee } = feature.properties;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: 'rgb(180,140,255)',
+                boxShadow: '0 0 8px rgb(180,140,255)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              AI patents · USPTO
+            </span>
+          </div>
+          <h2 className="mt-1 truncate text-base font-medium text-phosphor-200">{city}</h2>
+          <div className="text-xs text-phosphor-400">{country}</div>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">Year</dt>
+        <dd className="text-phosphor-300 font-mono">{year}</dd>
+        <dt className="text-phosphor-700">Grants</dt>
+        <dd className="text-phosphor-300 font-mono">{count.toLocaleString()}</dd>
+        {top_assignee && (
+          <>
+            <dt className="text-phosphor-700">Top assignee</dt>
+            <dd className="text-phosphor-300">{top_assignee}</dd>
+          </>
+        )}
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function ExportControlDetail({
+  feature,
+  onClose,
+}: {
+  feature: ExportControlFeature;
+  onClose: () => void;
+}) {
+  const { name, list_name, listed_year, country } = feature.properties;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{
+                backgroundColor: 'rgb(255,110,110)',
+                boxShadow: '0 0 8px rgb(255,110,110)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              Export controls · CSL
+            </span>
+          </div>
+          <h2 className="mt-1 truncate text-base font-medium text-phosphor-200">{name}</h2>
+          <div className="text-xs text-phosphor-400">{country}</div>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">List</dt>
+        <dd className="text-phosphor-300">{list_name}</dd>
+        <dt className="text-phosphor-700">Listed</dt>
+        <dd className="text-phosphor-300 font-mono">{listed_year}</dd>
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function CoauthorshipDetail({
+  feature,
+  onClose,
+}: {
+  feature: CoauthorshipFeature;
+  onClose: () => void;
+}) {
+  const { from_name, to_name, year, weight } = feature.properties;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-4 rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, rgb(120,230,220), rgb(200,240,255))',
+                boxShadow: '0 0 6px rgba(120,230,220,0.7)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              Co-authorship · OpenAlex
+            </span>
+          </div>
+          <h2 className="mt-1 text-base font-medium text-phosphor-200 leading-tight">
+            {from_name}
+            <span className="mx-1.5 text-phosphor-600">↔</span>
+            {to_name}
+          </h2>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">Year</dt>
+        <dd className="text-phosphor-300 font-mono">{year}</dd>
+        <dt className="text-phosphor-700">Papers</dt>
+        <dd className="text-phosphor-300 font-mono">{weight.toLocaleString()}</dd>
       </dl>
       <ProvenanceBlock provenance={feature.properties.provenance} />
     </>

@@ -1,16 +1,21 @@
 import { ScatterplotLayer } from '@deck.gl/layers';
+import { DataFilterExtension, type DataFilterExtensionProps } from '@deck.gl/extensions';
 import type { PickingInfo } from '@deck.gl/core';
 import type { MoneyFlowFeature } from '../../types';
 import { withAlpha } from '../../utils/colors';
+import type { TimeWindow } from '../../utils/temporal';
 
 interface Options {
   features: MoneyFlowFeature[];
   selectedId: string | null;
   hoveredId: string | null;
   pulsePhase: number;
+  timeWindow: TimeWindow;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
+
+const filterExt = new DataFilterExtension({ filterSize: 1 });
 
 // Dot radius encodes investment magnitude on a sqrt scale so the US (~$109B)
 // doesn't visually dwarf Israel (~$2.8B) past readability. radiusMinPixels
@@ -24,12 +29,13 @@ function radiusMeters(amountUsd: number): number {
 }
 
 export function buildMoneyLayers(opts: Options) {
-  const { features, selectedId, hoveredId, pulsePhase, onClick, onHover } = opts;
+  const { features, selectedId, hoveredId, pulsePhase, timeWindow, onClick, onHover } = opts;
   const getPosition = (f: MoneyFlowFeature) => f.geometry.coordinates as [number, number];
+  const getFilterValue = (f: MoneyFlowFeature) => [f.properties.year];
 
   const haloScale = 1 + 0.15 * Math.sin(pulsePhase);
 
-  const halo = new ScatterplotLayer<MoneyFlowFeature>({
+  const halo = new ScatterplotLayer<MoneyFlowFeature, DataFilterExtensionProps<MoneyFlowFeature>>({
     id: 'money-flow-halo',
     data: features,
     getPosition,
@@ -41,10 +47,13 @@ export function buildMoneyLayers(opts: Options) {
     stroked: false,
     filled: true,
     pickable: false,
+    extensions: [filterExt],
+    getFilterValue,
+    filterRange: [timeWindow.t0, timeWindow.t1],
     parameters: { depthCompare: 'always' },
   });
 
-  const core = new ScatterplotLayer<MoneyFlowFeature>({
+  const core = new ScatterplotLayer<MoneyFlowFeature, DataFilterExtensionProps<MoneyFlowFeature>>({
     id: 'money-flow-core',
     data: features,
     getPosition,
@@ -64,6 +73,9 @@ export function buildMoneyLayers(opts: Options) {
     pickable: true,
     onClick,
     onHover,
+    extensions: [filterExt],
+    getFilterValue,
+    filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
       getLineColor: [selectedId, hoveredId],
     },

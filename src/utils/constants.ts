@@ -74,6 +74,30 @@ export const LAYERS: LayerMeta[] = [
     url: '/data/money-flow.geojson',
     color: [255, 220, 120],
   },
+  {
+    kind: 'patent',
+    id: 'patents',
+    label: 'AI Patents (USPTO)',
+    category: 'research',
+    url: '/data/patents.geojson',
+    color: [180, 140, 255],
+  },
+  {
+    kind: 'export-control',
+    id: 'export-controls',
+    label: 'Export Controls (CSL)',
+    category: 'regulatory',
+    url: '/data/export-controls.geojson',
+    color: [255, 110, 110],
+  },
+  {
+    kind: 'coauthorship',
+    id: 'coauthorship',
+    label: 'Co-authorship (OpenAlex)',
+    category: 'research',
+    url: '/data/coauthorship.geojson',
+    color: [120, 230, 220],
+  },
 ];
 
 export const LAYER_IDS: LayerId[] = LAYERS.map((l) => l.id);
@@ -85,6 +109,7 @@ export const CATEGORIES: { id: LayerCategory; label: string }[] = [
   { id: 'regulatory', label: 'Regulation' },
   { id: 'supply', label: 'Supply chain' },
   { id: 'money', label: 'Money flow' },
+  { id: 'research', label: 'Research' },
 ];
 
 export const BASEMAP_COUNTRIES_URL = '/data/ne_110m_countries.geojson';
@@ -104,3 +129,11 @@ export const INITIAL_VIEW = {
 export const AUTO_ROTATE_DEG_PER_SEC = 4;
 
 export const GLOBE_RESOLUTION = 5;
+
+// Phase 4 timeline window (years). Spans from the earliest "opened" we know
+// about (2005, GCP us-central1 era) through the current data year. The
+// scrubber clamps within this band; default window is the full range.
+export const TIMELINE_MIN_YEAR = 2005;
+export const TIMELINE_MAX_YEAR = 2026;
+// Speed of the play head when the timeline is animating, in years/second.
+export const TIMELINE_PLAY_RATE = 1.2;

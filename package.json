@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@deck.gl/core": "^9.2.0",
+    "@deck.gl/extensions": "^9.2.0",
+    "@deck.gl/geo-layers": "^9.2.0",
     "@deck.gl/layers": "^9.2.0",
     "@deck.gl/react": "^9.2.0",
     "@duckdb/duckdb-wasm": "1.33.1-dev45.0",

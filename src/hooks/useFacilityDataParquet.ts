@@ -14,8 +14,10 @@ const POINT_LAYERS = new Set<LayerId>([
   'ai-facilities',
   'fabs',
   'money-flow',
+  'patents',
+  'export-controls',
 ]);
-const ARC_LAYERS = new Set<LayerId>(['supply-trade']);
+const ARC_LAYERS = new Set<LayerId>(['supply-trade', 'coauthorship']);
 const GEOJSON_ONLY = new Set<LayerId>(['regulatory-zones', 'supply-arcs']);
 
 function parquetUrl(id: LayerId): string {

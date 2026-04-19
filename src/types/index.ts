@@ -11,9 +11,20 @@ export type LayerId =
   | 'regulatory-zones'
   | 'supply-arcs'
   | 'money-flow'
-  | 'supply-trade';
+  | 'supply-trade'
+  | 'patents'
+  | 'export-controls'
+  | 'coauthorship';
 
-export type LayerKind = 'facility' | 'regulatory' | 'supply' | 'money' | 'trade';
+export type LayerKind =
+  | 'facility'
+  | 'regulatory'
+  | 'supply'
+  | 'money'
+  | 'trade'
+  | 'patent'
+  | 'export-control'
+  | 'coauthorship';
 
 export type LayerCategory =
   | 'compute'
@@ -21,7 +32,8 @@ export type LayerCategory =
   | 'semiconductor'
   | 'regulatory'
   | 'supply'
-  | 'money';
+  | 'money'
+  | 'research';
 
 export interface Provenance {
   sources: string[];
@@ -61,6 +73,7 @@ export interface RegulatoryProperties {
   country_name: string;
   regime: Regime;
   key_policies?: string[];
+  effective_year?: number;
   provenance?: Provenance;
 }
 
@@ -73,6 +86,7 @@ export interface SupplyArcProperties {
   to_id: string;
   weight?: number;
   label?: string;
+  year?: number;
   provenance?: Provenance;
 }
 
@@ -106,12 +120,54 @@ export interface TradeArcProperties {
 export type TradeArcFeature = Feature<LineString, TradeArcProperties>;
 export type TradeArcCollection = FeatureCollection<LineString, TradeArcProperties>;
 
+export interface PatentProperties {
+  id: string;
+  city: string;
+  country: string;
+  year: number;
+  count: number;
+  top_assignee?: string;
+  provenance?: Provenance;
+}
+
+export type PatentFeature = Feature<Point, PatentProperties>;
+export type PatentCollection = FeatureCollection<Point, PatentProperties>;
+
+export interface ExportControlProperties {
+  id: string;
+  name: string;
+  list_name: string;
+  country: string;
+  listed_year: number;
+  provenance?: Provenance;
+}
+
+export type ExportControlFeature = Feature<Point, ExportControlProperties>;
+export type ExportControlCollection = FeatureCollection<Point, ExportControlProperties>;
+
+export interface CoauthorshipProperties {
+  id: string;
+  from_id: string;
+  to_id: string;
+  from_name: string;
+  to_name: string;
+  year: number;
+  weight: number;
+  provenance?: Provenance;
+}
+
+export type CoauthorshipFeature = Feature<LineString, CoauthorshipProperties>;
+export type CoauthorshipCollection = FeatureCollection<LineString, CoauthorshipProperties>;
+
 export type AnyFeature =
   | FacilityFeature
   | RegulatoryFeature
   | SupplyArcFeature
   | MoneyFlowFeature
-  | TradeArcFeature;
+  | TradeArcFeature
+  | PatentFeature
+  | ExportControlFeature
+  | CoauthorshipFeature;
 
 export type AnyCollection = FeatureCollection<Geometry, Record<string, unknown>>;
 
@@ -147,12 +203,30 @@ export interface TradeLayerMeta extends LayerMetaBase {
   color: [number, number, number];
 }
 
+export interface PatentLayerMeta extends LayerMetaBase {
+  kind: 'patent';
+  color: [number, number, number];
+}
+
+export interface ExportControlLayerMeta extends LayerMetaBase {
+  kind: 'export-control';
+  color: [number, number, number];
+}
+
+export interface CoauthorshipLayerMeta extends LayerMetaBase {
+  kind: 'coauthorship';
+  color: [number, number, number];
+}
+
 export type LayerMeta =
   | FacilityLayerMeta
   | RegulatoryLayerMeta
   | SupplyLayerMeta
   | MoneyLayerMeta
-  | TradeLayerMeta;
+  | TradeLayerMeta
+  | PatentLayerMeta
+  | ExportControlLayerMeta
+  | CoauthorshipLayerMeta;
 
 export interface GlobeViewState {
   longitude: number;

@@ -21,13 +21,34 @@ from typing import Callable
 from .core.dedupe import dedupe_facilities
 from .core.export import to_geojson, to_parquet
 from .core.geocode import Geocoder
-from .core.schema import Facility, MoneyFlow, TradeArc
+from .core.schema import (
+    CoauthorArc,
+    ExportControl,
+    Facility,
+    MoneyFlow,
+    Patent,
+    TradeArc,
+)
 from .core.validate import (
+    validate_coauthorship,
+    validate_export_controls,
     validate_facilities,
     validate_money_flow,
+    validate_patents,
     validate_trade,
 )
-from .sources import gcp, aws, azure, fabs, ai_labs, money, supply_trade
+from .sources import (
+    ai_labs,
+    aws,
+    azure,
+    coauthorship,
+    export_controls,
+    fabs,
+    gcp,
+    money,
+    patents,
+    supply_trade,
+)
 from .sources import regulations as regulations_src
 from .sources import supply_arcs as supply_arcs_src
 
@@ -82,6 +103,42 @@ def _emit_trade(records: list[TradeArc], updated: str) -> None:
         updated=updated,
     )
     to_parquet(records, path=PARQUET / "supply-trade.parquet")
+
+
+def _emit_patents(records: list[Patent], updated: str) -> None:
+    validate_patents(records)
+    to_geojson(
+        records,
+        name="patents",
+        path=PUBLIC / "patents.geojson",
+        source_notes="PatentsView (USPTO grants, AI CPC clusters G06N/G06F18/G06V/G10L)",
+        updated=updated,
+    )
+    to_parquet(records, path=PARQUET / "patents.parquet")
+
+
+def _emit_export_controls(records: list[ExportControl], updated: str) -> None:
+    validate_export_controls(records)
+    to_geojson(
+        records,
+        name="export-controls",
+        path=PUBLIC / "export-controls.geojson",
+        source_notes="trade.gov Consolidated Screening List (EAR Entity List + OFAC SDN), AI/semi subset",
+        updated=updated,
+    )
+    to_parquet(records, path=PARQUET / "export-controls.parquet")
+
+
+def _emit_coauthorship(records: list[CoauthorArc], updated: str) -> None:
+    validate_coauthorship(records)
+    to_geojson(
+        records,
+        name="coauthorship",
+        path=PUBLIC / "coauthorship.geojson",
+        source_notes="OpenAlex co-authorship graph (top AI institutions, 2018-2024)",
+        updated=updated,
+    )
+    to_parquet(records, path=PARQUET / "coauthorship.parquet")
 
 
 def _emit_passthrough(name: str, text: str) -> None:
@@ -145,6 +202,15 @@ def _build_layer_fns(geocoder: Geocoder, updated: str) -> dict[str, LayerFn]:
     def run_supply_trade() -> None:
         _emit_trade(supply_trade.fetch(), updated)
 
+    def run_patents() -> None:
+        _emit_patents(patents.fetch(), updated)
+
+    def run_export_controls() -> None:
+        _emit_export_controls(export_controls.fetch(), updated)
+
+    def run_coauthorship() -> None:
+        _emit_coauthorship(coauthorship.fetch(), updated)
+
     def run_regulations() -> None:
         _emit_passthrough("regulatory-zones", regulations_src.fetch_geojson_text())
 
@@ -159,6 +225,9 @@ def _build_layer_fns(geocoder: Geocoder, updated: str) -> dict[str, LayerFn]:
         "ai_labs": run_ai_labs,
         "money": run_money,
         "supply_trade": run_supply_trade,
+        "patents": run_patents,
+        "export_controls": run_export_controls,
+        "coauthorship": run_coauthorship,
         "regulations": run_regulations,
         "supply_arcs": run_supply_arcs,
     }
