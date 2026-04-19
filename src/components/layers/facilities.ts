@@ -1,7 +1,9 @@
 import { ScatterplotLayer } from '@deck.gl/layers';
+import { DataFilterExtension, type DataFilterExtensionProps } from '@deck.gl/extensions';
 import type { PickingInfo } from '@deck.gl/core';
 import type { FacilityFeature, LayerMeta } from '../../types';
 import { operatorColor, withAlpha } from '../../utils/colors';
+import { ALWAYS_YEAR, type TimeWindow } from '../../utils/temporal';
 
 interface Options {
   layer: LayerMeta;
@@ -9,9 +11,12 @@ interface Options {
   selectedId: string | null;
   hoveredId: string | null;
   pulsePhase: number;
+  timeWindow: TimeWindow;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
+
+const filterExt = new DataFilterExtension({ filterSize: 1 });
 
 /**
  * Build a pair of ScatterplotLayers for one facility category:
@@ -21,14 +26,27 @@ interface Options {
  * Plus a third selection-ring layer that renders only when something is selected.
  */
 export function buildFacilityLayers(opts: Options) {
-  const { layer, features, selectedId, hoveredId, pulsePhase, onClick, onHover } = opts;
+  const {
+    layer,
+    features,
+    selectedId,
+    hoveredId,
+    pulsePhase,
+    timeWindow,
+    onClick,
+    onHover,
+  } = opts;
 
   const getPosition = (f: FacilityFeature) => f.geometry.coordinates as [number, number];
+  // Features without an `opened` year stay visible at every window position
+  // (we have nothing to filter on). Anchoring at TIMELINE_MIN_YEAR keeps them
+  // on for the standard window range.
+  const getFilterValue = (f: FacilityFeature) => [f.properties.opened ?? ALWAYS_YEAR];
 
   // Halo pulses slightly — single uniform via radiusScale (GPU-cheap).
   const haloScale = 1 + 0.15 * Math.sin(pulsePhase);
 
-  const halo = new ScatterplotLayer<FacilityFeature>({
+  const halo = new ScatterplotLayer<FacilityFeature, DataFilterExtensionProps<FacilityFeature>>({
     id: `${layer.id}-halo`,
     data: features,
     getPosition,
@@ -40,10 +58,13 @@ export function buildFacilityLayers(opts: Options) {
     stroked: false,
     filled: true,
     pickable: false,
+    extensions: [filterExt],
+    getFilterValue,
+    filterRange: [timeWindow.t0, timeWindow.t1],
     parameters: { depthCompare: 'always' },
   });
 
-  const core = new ScatterplotLayer<FacilityFeature>({
+  const core = new ScatterplotLayer<FacilityFeature, DataFilterExtensionProps<FacilityFeature>>({
     id: `${layer.id}-core`,
     data: features,
     getPosition,
@@ -64,6 +85,9 @@ export function buildFacilityLayers(opts: Options) {
     autoHighlight: false,
     onClick,
     onHover,
+    extensions: [filterExt],
+    getFilterValue,
+    filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
       getLineColor: [selectedId, hoveredId],
     },

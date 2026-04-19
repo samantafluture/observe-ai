@@ -1,12 +1,15 @@
-# AI Globe — Phase 3
+# AI Globe — Phase 4
 
-> The physical map of AI — now with an automated data pipeline and the first
-> economic layers on top of the infrastructure.
+> The temporal dimension. Scrub through 2005-2026 and watch compute, capital,
+> regulation, patents, export controls and research collaboration flicker
+> in and out as they actually happened.
 
-Interactive deck.gl globe. **Phase 3** adds an automated Python pipeline, a
-weekly refresh cron, per-feature provenance, two new layers (**private AI
-investment** and **HS 8542 integrated-circuit trade flows**), and an opt-in
-DuckDB-WASM Parquet path alongside the default static GeoJSON.
+Interactive deck.gl globe. **Phase 4** adds a `DataFilterExtension`-driven
+timeline scrubber, a `TripsLayer` overlay that animates chip shipments along
+supply arcs, three new layers (**AI patents**, **U.S. export controls**,
+**OpenAlex co-authorship**), and an absence-detection panel that surfaces
+the structural gaps the data implies (regulating an industry you don't
+host; compute without capital; severed knowledge ties).
 
 ## Stack
 
@@ -14,8 +17,10 @@ DuckDB-WASM Parquet path alongside the default static GeoJSON.
 | ------------ | ----------------------------------------------------------- |
 | Build        | Vite 6 + React 19 + TypeScript 5                            |
 | Visualization| `@deck.gl/core` `_GlobeView` 9 (resolution 5)               |
+| Time filter  | `@deck.gl/extensions` `DataFilterExtension` (GPU-side)      |
+| Animated flows | `@deck.gl/geo-layers` `TripsLayer`                        |
 | State        | Zustand 5                                                   |
-| URL state    | nuqs 2 (`lng`, `lat`, `z`, `layers`, `sel`, `source`)       |
+| URL state    | nuqs 2 (`lng`, `lat`, `z`, `layers`, `sel`, `source`, `t0`, `t1`, `play`) |
 | Styling      | Tailwind CSS 4 (via `@tailwindcss/vite`)                    |
 | Data (default)| Static GeoJSON in `public/data/`                           |
 | Data (opt-in) | Parquet in `public/data/parquet/` via DuckDB-WASM          |
@@ -36,25 +41,35 @@ python -m pipeline.run --offline   # regenerate data from snapshots
 python -m pytest pipeline/tests -q
 ```
 
-## Phase 3 highlights
+## Phase 4 highlights
 
-- **Python pipeline** (`pipeline/`) with source-specific fetchers (Google
-  Cloud, AWS, Azure, Wikipedia fabs, CHIPS Act, OECD.AI, Stanford HAI, UN
-  Comtrade). Cached Nominatim geocoder, fuzzy entity dedup
-  (`thefuzz.token_set_ratio` + numeric-token preservation), per-feature
-  provenance, validation invariants, dual GeoJSON + Parquet export.
-- **Weekly cron** at `.github/workflows/pipeline.yml` — runs tests, runs
-  pipeline, opens a PR with the diff on `public/data/**`. API keys
-  (`CRUNCHBASE_API_KEY`, `COMTRADE_API_KEY`) read from repo secrets.
-- **Private AI investment layer** — country-level 2024 figures from Stanford
-  HAI AI Index 2025, rendered as sized glowing bubbles on capitals.
-  sqrt-scaled radius so Israel and the US coexist on the same screen.
-- **IC trade layer** — bilateral HS 8542 flows from UN Comtrade / OEC.world.
-  Rendered as log-scaled cool-blue arcs behind the curated supply arcs.
-- **Provenance** — every emitted feature carries `{ sources, updated,
-  confidence }`. The detail panel shows a clickable source list.
-- **DuckDB-WASM opt-in** — append `?source=parquet` to query Parquet mirrors
-  in the browser. Lazy-loaded (~4 MB) so default loads aren't penalized.
+- **Timeline scrubber** — bottom-of-viewport dual-thumb range over 2005-2026
+  with Play/Pause and Reset. Year window is URL-synced (`t0`, `t1`, `play`)
+  so a deep link reproduces whichever moment the reader was looking at.
+- **GPU-side time filtering** — every temporal layer (datacenters, fabs,
+  AI labs, money flow, IC trade, patents, export controls, co-authorship,
+  curated supply arcs) hangs `DataFilterExtension` on a single year value.
+  Per-vertex filtering happens on the GPU; CPU work is zero per frame.
+- **Animated supply trips** — when the timeline plays, a `TripsLayer`
+  overlays the curated supply arcs and animates a comet-tail head along
+  each fab → customer edge so chip shipments visibly move.
+- **AI patents (USPTO)** — city-level annual counts of granted patents in
+  the AI CPC cluster (G06N, G06F18, G06V, G10L), sourced via PatentsView
+  with a curated 2010-2024 fallback. Sized lavender bubbles with sqrt
+  scaling.
+- **Export controls (CSL)** — entities on the U.S. Consolidated Screening
+  List (Entity List + SDN), narrowed to the AI/semiconductor wave of
+  post-2018 designations. Pulsing red rings keyed to listing year.
+- **Co-authorship (OpenAlex)** — annual co-authored AI paper counts between
+  top global institutions (US/CN/UK/CA/JP/KR/IN/SG/CH). Cool-teal arcs,
+  log-scaled width.
+- **Backfilled "opened" years** — AWS regions (33 entries), Azure regions
+  (45 entries), AI labs (30 entries) get founding/launch years so the time
+  scrubber has signal. Regulatory polygons gain `effective_year`.
+- **Absence-detection panel** — surfaces structural correlations *by their
+  absence*: strict-regime countries with no fabs, compute hosts with no
+  recorded private investment, severed US↔CN co-authorship under sanctions.
+  Recomputes live with the timeline window.
 
 ## Shareable URL parameters
 
@@ -66,8 +81,13 @@ python -m pytest pipeline/tests -q
 | `layers` | comma list     | all layer IDs           |
 | `sel`    | feature id     | none                    |
 | `source` | `geojson` or `parquet` | `geojson`       |
+| `t0`     | int (year)     | `2005`                  |
+| `t1`     | int (year)     | `2026`                  |
+| `play`   | bool           | `false`                 |
 
-Example: `/?lng=121&lat=24.8&z=4&layers=fabs,supply-trade&sel=trade-TW-US-2023`
+Example — Taiwan in 2018, scrubber paused on the year, fabs + supply arcs +
+export controls only:
+`/?lng=121&lat=24.8&z=4&layers=fabs,supply-arcs,export-controls&t0=2005&t1=2018`
 
 ## Project structure
 
@@ -81,20 +101,25 @@ src/
     layers/
       basemap.ts facilities.ts regulatory.ts
       supply.ts  money.ts       trade.ts
-    controls/ ui/
+      patents.ts exportControls.ts coauthorship.ts
+    controls/
+      LayerToggles.tsx AutoRotateToggle.tsx TimelineScrubber.tsx
+    ui/
+      Header.tsx Legend.tsx Tooltip.tsx DetailPanel.tsx AbsencePanel.tsx
   hooks/
     useBasemapData.ts
     useDataSource.ts              ?source= URL flag
     useFacilityData.ts            dispatches by source
     useFacilityDataParquet.ts     DuckDB-WASM path
-    useUrlState.ts
+    useUrlState.ts                view + layers + selection + timeline
   store/globeStore.ts
   utils/
-    colors.ts constants.ts duckdb.ts format.ts
+    colors.ts constants.ts duckdb.ts format.ts temporal.ts
   types/index.ts
 pipeline/
   core/        schema / provenance / geocode / dedupe / validate / export
-  sources/     per-source fetchers + HTTP helper
+  sources/     per-source fetchers + HTTP helper (incl. patents,
+               export_controls, coauthorship)
   tests/       unit tests for schema / dedupe / validate
   run.py       orchestrator; `python -m pipeline.run [--offline] [--only <name>]`
   README.md
@@ -123,10 +148,12 @@ confidence score. Confidence 1.0 = curated/manual; 0.7-0.95 = live-scraped;
 - No `HeatmapLayer` / `ContourLayer` / `TerrainLayer`.
 - `lineWidth` and `getRadius` are meters in `LNGLAT`, clamped by
   `*MinPixels` / `*MaxPixels` so dots stay legible at any zoom.
+- `DataFilterExtension` uses 32-bit floats — we filter on integer years
+  rather than Unix timestamps to dodge precision loss.
 
 ## Roadmap
 
-- **Phase 4** — `DataFilterExtension` timeline scrubber, `TripsLayer` flows,
-  patent/export-control/co-authorship layers, absence-detection signals.
-- **Phase 5** — cross-layer correlation engine, energy/water ESG overlays,
-  comparative globe views, embeddable mini-globes.
+- **Phase 5** — cross-layer correlation engine (click a fab, highlight
+  every entity related across layers), energy/water ESG overlays from
+  hyperscaler reports, comparative side-by-side globe views, embeddable
+  mini-globes for blog posts.

@@ -1,11 +1,20 @@
 import pytest
 
 from pipeline.core.provenance import make
-from pipeline.core.schema import Facility, MoneyFlow
+from pipeline.core.schema import (
+    CoauthorArc,
+    ExportControl,
+    Facility,
+    MoneyFlow,
+    Patent,
+)
 from pipeline.core.validate import (
     ValidationError,
+    validate_coauthorship,
+    validate_export_controls,
     validate_facilities,
     validate_money_flow,
+    validate_patents,
 )
 
 
@@ -42,3 +51,31 @@ def test_validate_rejects_negative_money() -> None:
     )
     with pytest.raises(ValidationError):
         validate_money_flow([rec])
+
+
+def test_validate_rejects_negative_patent_count() -> None:
+    rec = Patent(
+        id="p", city="X", country="US", lng=0.0, lat=0.0,
+        year=2024, count=-1, provenance=make(sources=["x"]),
+    )
+    with pytest.raises(ValidationError):
+        validate_patents([rec])
+
+
+def test_validate_rejects_implausible_listed_year() -> None:
+    rec = ExportControl(
+        id="e", name="X", list_name="Entity List", country="CN",
+        lng=0.0, lat=0.0, listed_year=1700, provenance=make(sources=["x"]),
+    )
+    with pytest.raises(ValidationError):
+        validate_export_controls([rec])
+
+
+def test_validate_rejects_negative_coauthor_weight() -> None:
+    rec = CoauthorArc(
+        id="c", from_id="a", to_id="b", from_name="A", to_name="B",
+        from_lng=0.0, from_lat=0.0, to_lng=1.0, to_lat=1.0,
+        year=2024, weight=-1, provenance=make(sources=["x"]),
+    )
+    with pytest.raises(ValidationError):
+        validate_coauthorship([rec])

@@ -134,3 +134,116 @@ class TradeArc:
                 "provenance": self.provenance.to_dict(),
             },
         }
+
+
+@dataclass
+class Patent:
+    """City-level AI patent activity for a given year (PatentsView, USPTO).
+
+    Aggregated count of granted patents matching AI-related CPC subgroups
+    (G06N, G06F18, G06V, G10L) for the assignee's primary inventor location.
+    """
+
+    id: str
+    city: str
+    country: str
+    lng: float
+    lat: float
+    year: int
+    count: int
+    top_assignee: Optional[str] = None
+    provenance: Provenance = field(default_factory=Provenance)
+
+    def to_feature(self) -> dict:
+        props = {
+            "id": self.id,
+            "city": self.city,
+            "country": self.country,
+            "year": self.year,
+            "count": self.count,
+            "provenance": self.provenance.to_dict(),
+        }
+        if self.top_assignee is not None:
+            props["top_assignee"] = self.top_assignee
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [self.lng, self.lat]},
+            "properties": props,
+        }
+
+
+@dataclass
+class ExportControl:
+    """Entity on a U.S. export-screening list (Consolidated Screening List).
+
+    A single physical address per entity. `listed_year` is the year the entity
+    first appeared on any of the 11 covered lists; the time scrubber uses it
+    to surface the wave of post-2018 EAR Entity List additions.
+    """
+
+    id: str
+    name: str
+    list_name: str  # e.g. "Entity List", "SDN", "Unverified"
+    country: str
+    lng: float
+    lat: float
+    listed_year: int
+    provenance: Provenance = field(default_factory=Provenance)
+
+    def to_feature(self) -> dict:
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [self.lng, self.lat]},
+            "properties": {
+                "id": self.id,
+                "name": self.name,
+                "list_name": self.list_name,
+                "country": self.country,
+                "listed_year": self.listed_year,
+                "provenance": self.provenance.to_dict(),
+            },
+        }
+
+
+@dataclass
+class CoauthorArc:
+    """OpenAlex co-authorship arc between two institutions for a year window.
+
+    `weight` is the count of co-authored papers in the year. Paths are drawn
+    as great circles between the institutions' geocoded centroids.
+    """
+
+    id: str
+    from_id: str
+    to_id: str
+    from_name: str
+    to_name: str
+    from_lng: float
+    from_lat: float
+    to_lng: float
+    to_lat: float
+    year: int
+    weight: int
+    provenance: Provenance = field(default_factory=Provenance)
+
+    def to_feature(self) -> dict:
+        return {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [self.from_lng, self.from_lat],
+                    [self.to_lng, self.to_lat],
+                ],
+            },
+            "properties": {
+                "id": self.id,
+                "from_id": self.from_id,
+                "to_id": self.to_id,
+                "from_name": self.from_name,
+                "to_name": self.to_name,
+                "year": self.year,
+                "weight": self.weight,
+                "provenance": self.provenance.to_dict(),
+            },
+        }

@@ -5,8 +5,11 @@ import { LAYERS } from '../../utils/constants';
 import { formatUsd } from '../../utils/format';
 import type {
   AnyFeature,
+  CoauthorshipFeature,
+  ExportControlFeature,
   FacilityFeature,
   MoneyFlowFeature,
+  PatentFeature,
   RegulatoryFeature,
   SupplyArcFeature,
   TradeArcFeature,
@@ -37,6 +40,9 @@ export function Tooltip() {
   const id = (feature.properties as { id?: string } | undefined)?.id ?? '';
   const isMoney = id.startsWith('money-');
   const isTrade = id.startsWith('trade-');
+  const isPatent = id.startsWith('patent-');
+  const isExportControl = id.startsWith('ec-');
+  const isCoauth = id.startsWith('coauth-');
 
   return (
     <div
@@ -46,12 +52,18 @@ export function Tooltip() {
       {feature.geometry.type === 'Point' ? (
         isMoney ? (
           <MoneyTip feature={feature as MoneyFlowFeature} />
+        ) : isPatent ? (
+          <PatentTip feature={feature as PatentFeature} />
+        ) : isExportControl ? (
+          <ExportControlTip feature={feature as ExportControlFeature} />
         ) : (
           <FacilityTip feature={feature as FacilityFeature} />
         )
       ) : feature.geometry.type === 'LineString' ? (
         isTrade ? (
           <TradeTip feature={feature as TradeArcFeature} />
+        ) : isCoauth ? (
+          <CoauthorshipTip feature={feature as CoauthorshipFeature} />
         ) : (
           <ArcTip feature={feature as SupplyArcFeature} pointsById={pointsById} />
         )
@@ -157,6 +169,61 @@ function TradeTip({ feature }: { feature: TradeArcFeature }) {
       </div>
       <div className="mt-0.5 text-[10px] text-phosphor-700">
         HS {hs_code} · {year} · {formatUsd(value_usd)}
+      </div>
+    </>
+  );
+}
+
+function PatentTip({ feature }: { feature: PatentFeature }) {
+  const { city, country, year, count, top_assignee } = feature.properties;
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ backgroundColor: 'rgb(180,140,255)', boxShadow: '0 0 6px rgb(180,140,255)' }}
+        />
+        <span className="font-medium text-phosphor-200">{city}</span>
+      </div>
+      <div className="mt-0.5 text-[10px] text-phosphor-700">
+        AI patents · {year} · {count.toLocaleString()} grants · {country}
+      </div>
+      {top_assignee && (
+        <div className="text-[10px] text-phosphor-700">Top assignee: {top_assignee}</div>
+      )}
+    </>
+  );
+}
+
+function ExportControlTip({ feature }: { feature: ExportControlFeature }) {
+  const { name, list_name, listed_year, country } = feature.properties;
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-block h-2 w-2 rounded-sm"
+          style={{ backgroundColor: 'rgb(255,110,110)', boxShadow: '0 0 6px rgb(255,110,110)' }}
+        />
+        <span className="font-medium text-phosphor-200">{name}</span>
+      </div>
+      <div className="mt-0.5 text-[10px] text-phosphor-700">
+        {list_name} · listed {listed_year} · {country}
+      </div>
+    </>
+  );
+}
+
+function CoauthorshipTip({ feature }: { feature: CoauthorshipFeature }) {
+  const { from_name, to_name, year, weight } = feature.properties;
+  return (
+    <>
+      <div className="text-phosphor-200">
+        {from_name}
+        <span className="mx-1.5 text-phosphor-600">↔</span>
+        {to_name}
+      </div>
+      <div className="mt-0.5 text-[10px] text-phosphor-700">
+        {year} · {weight.toLocaleString()} co-authored AI papers
       </div>
     </>
   );

@@ -11,9 +11,9 @@ const REGIME_ORDER: (keyof typeof REGIME_COLOR)[] = [
 export function Legend() {
   return (
     <div className="pointer-events-auto hidden rounded border border-phosphor-800/70 bg-black/70 px-3 py-2 text-[10px] text-phosphor-700 backdrop-blur-sm md:block">
-      <div className="uppercase tracking-[0.22em]">Phase 03</div>
+      <div className="uppercase tracking-[0.22em]">Phase 04</div>
       <div className="mt-1 max-w-[220px] leading-relaxed text-phosphor-500">
-        Automated pipeline · provenance-stamped · money + trade layers added.
+        Temporal scrubber · animated supply trips · patents · export controls · co-authorship.
       </div>
       <div className="mt-2 border-t border-phosphor-900 pt-2">
         <div className="mb-1 uppercase tracking-[0.22em] text-phosphor-800">Regulatory regime</div>
@@ -36,7 +36,7 @@ export function Legend() {
         </ul>
       </div>
       <div className="mt-2 border-t border-phosphor-900 pt-2">
-        <div className="mb-1 uppercase tracking-[0.22em] text-phosphor-800">Flows</div>
+        <div className="mb-1 uppercase tracking-[0.22em] text-phosphor-800">Flows & signals</div>
         <ul className="flex flex-col gap-0.5 text-phosphor-500">
           <li className="flex items-center gap-2">
             <span
@@ -62,6 +62,29 @@ export function Legend() {
               }}
             />
             <span>Supply · fab → customer (curated)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span
+              className="inline-block h-[3px] w-5 rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, rgb(120,230,220), rgb(200,240,255))',
+              }}
+            />
+            <span>Co-authorship · OpenAlex pairs</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: 'rgb(180,140,255)', boxShadow: '0 0 6px rgb(180,140,255)' }}
+            />
+            <span>Patents · sqrt(USPTO grants)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ backgroundColor: 'rgb(255,110,110)', boxShadow: '0 0 6px rgb(255,110,110)' }}
+            />
+            <span>Export controls · CSL listings</span>
           </li>
         </ul>
       </div>

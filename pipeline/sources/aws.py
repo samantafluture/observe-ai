@@ -16,6 +16,45 @@ AWS_JSON_URL = (
     "https://raw.githubusercontent.com/jsonmaur/aws-regions/master/regions.json"
 )
 
+# Public AWS region launch years from "AWS regions and Availability Zones"
+# announcements (re:Invent keynotes / blog posts). Used by the Phase 4 time
+# scrubber so a region only "lights up" once it actually existed.
+_REGION_OPENED: dict[str, int] = {
+    "us-east-1": 2006,
+    "us-west-2": 2011,
+    "us-west-1": 2009,
+    "us-east-2": 2016,
+    "ap-southeast-1": 2010,
+    "ap-northeast-1": 2011,
+    "eu-west-1": 2007,
+    "sa-east-1": 2011,
+    "ap-southeast-2": 2012,
+    "eu-central-1": 2014,
+    "ap-northeast-2": 2016,
+    "ap-south-1": 2016,
+    "ca-central-1": 2016,
+    "eu-west-2": 2016,
+    "us-gov-west-1": 2011,
+    "us-gov-east-1": 2018,
+    "ap-northeast-3": 2018,
+    "eu-west-3": 2017,
+    "eu-north-1": 2018,
+    "ap-east-1": 2019,
+    "me-south-1": 2019,
+    "af-south-1": 2020,
+    "eu-south-1": 2020,
+    "ap-southeast-3": 2022,
+    "me-central-1": 2022,
+    "eu-south-2": 2022,
+    "eu-central-2": 2022,
+    "ap-south-2": 2022,
+    "ap-southeast-4": 2023,
+    "il-central-1": 2023,
+    "ca-west-1": 2023,
+    "ap-southeast-5": 2024,
+    "mx-central-1": 2025,
+}
+
 
 def fetch() -> list[Facility]:
     snapshot = {
@@ -58,6 +97,7 @@ def fetch() -> list[Facility]:
                 lat=float(lat),
                 country=country,
                 region=code,
+                opened=_REGION_OPENED.get(code),
                 provenance=provenance,
             )
         )
@@ -79,6 +119,7 @@ def fetch() -> list[Facility]:
                 lat=lat,
                 country=p.get("country"),
                 region=region,
+                opened=p.get("opened") or _REGION_OPENED.get(region),
                 provenance=make(
                     sources=["https://aws.amazon.com/about-aws/global-infrastructure/"],
                     confidence=0.85,
