@@ -206,6 +206,85 @@ class ExportControl:
 
 
 @dataclass
+class Esg:
+    """Per-facility annual energy + water use (from corporate sustainability
+    reports). `facility_id` joins to a Facility on the compute layers.
+
+    Where hyperscalers only publish fleet-level numbers, we prorate by capacity
+    heuristics in `pipeline/sources/esg.py` and mark confidence accordingly.
+    """
+
+    id: str
+    facility_id: str
+    operator: str
+    facility_name: str
+    lng: float
+    lat: float
+    year: int
+    energy_mwh: float  # MWh/yr of electricity
+    water_m3: float    # m³/yr freshwater withdrawal
+    country: Optional[str] = None
+    pue: Optional[float] = None
+    provenance: Provenance = field(default_factory=Provenance)
+
+    def to_feature(self) -> dict:
+        props = {
+            "id": self.id,
+            "facility_id": self.facility_id,
+            "operator": self.operator,
+            "facility_name": self.facility_name,
+            "year": self.year,
+            "energy_mwh": self.energy_mwh,
+            "water_m3": self.water_m3,
+            "provenance": self.provenance.to_dict(),
+        }
+        if self.country is not None:
+            props["country"] = self.country
+        if self.pue is not None:
+            props["pue"] = self.pue
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [self.lng, self.lat]},
+            "properties": props,
+        }
+
+
+@dataclass
+class JobPosting:
+    """City-level AI job-posting concentration for a given year.
+
+    `postings` is the active or 12-month cumulative count; what it encodes
+    depends on the underlying source (BLS OEWS vs Lightcast snapshot), which
+    `source` records verbatim so downstream displays can caveat appropriately.
+    """
+
+    id: str
+    city: str
+    country: str
+    lng: float
+    lat: float
+    year: int
+    postings: int
+    source: str
+    provenance: Provenance = field(default_factory=Provenance)
+
+    def to_feature(self) -> dict:
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [self.lng, self.lat]},
+            "properties": {
+                "id": self.id,
+                "city": self.city,
+                "country": self.country,
+                "year": self.year,
+                "postings": self.postings,
+                "source": self.source,
+                "provenance": self.provenance.to_dict(),
+            },
+        }
+
+
+@dataclass
 class CoauthorArc:
     """OpenAlex co-authorship arc between two institutions for a year window.
 

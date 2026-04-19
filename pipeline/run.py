@@ -23,25 +23,31 @@ from .core.export import to_geojson, to_parquet
 from .core.geocode import Geocoder
 from .core.schema import (
     CoauthorArc,
+    Esg,
     ExportControl,
     Facility,
+    JobPosting,
     MoneyFlow,
     Patent,
     TradeArc,
 )
 from .core.validate import (
     validate_coauthorship,
+    validate_esg,
     validate_export_controls,
     validate_facilities,
+    validate_job_postings,
     validate_money_flow,
     validate_patents,
     validate_trade,
 )
 from .sources import (
+    ai_jobs,
     ai_labs,
     aws,
     azure,
     coauthorship,
+    esg,
     export_controls,
     fabs,
     gcp,
@@ -141,6 +147,30 @@ def _emit_coauthorship(records: list[CoauthorArc], updated: str) -> None:
     to_parquet(records, path=PARQUET / "coauthorship.parquet")
 
 
+def _emit_esg(records: list[Esg], updated: str) -> None:
+    validate_esg(records)
+    to_geojson(
+        records,
+        name="esg",
+        path=PUBLIC / "esg.geojson",
+        source_notes="Corporate sustainability reports: Google / Microsoft / Amazon / Meta / TSMC (2023-2024)",
+        updated=updated,
+    )
+    to_parquet(records, path=PARQUET / "esg.parquet")
+
+
+def _emit_ai_jobs(records: list[JobPosting], updated: str) -> None:
+    validate_job_postings(records)
+    to_geojson(
+        records,
+        name="ai-jobs",
+        path=PUBLIC / "ai-jobs.geojson",
+        source_notes="Stanford HAI AI Index 2024 + Lightcast AI Workforce reports + BLS OEWS",
+        updated=updated,
+    )
+    to_parquet(records, path=PARQUET / "ai-jobs.parquet")
+
+
 def _emit_passthrough(name: str, text: str) -> None:
     path = PUBLIC / f"{name}.geojson"
     if text:
@@ -211,6 +241,12 @@ def _build_layer_fns(geocoder: Geocoder, updated: str) -> dict[str, LayerFn]:
     def run_coauthorship() -> None:
         _emit_coauthorship(coauthorship.fetch(), updated)
 
+    def run_esg() -> None:
+        _emit_esg(esg.fetch(), updated)
+
+    def run_ai_jobs() -> None:
+        _emit_ai_jobs(ai_jobs.fetch(), updated)
+
     def run_regulations() -> None:
         _emit_passthrough("regulatory-zones", regulations_src.fetch_geojson_text())
 
@@ -228,6 +264,8 @@ def _build_layer_fns(geocoder: Geocoder, updated: str) -> dict[str, LayerFn]:
         "patents": run_patents,
         "export_controls": run_export_controls,
         "coauthorship": run_coauthorship,
+        "esg": run_esg,
+        "ai_jobs": run_ai_jobs,
         "regulations": run_regulations,
         "supply_arcs": run_supply_arcs,
     }

@@ -4,6 +4,7 @@ import type { PickingInfo } from '@deck.gl/core';
 import type { ExportControlFeature } from '../../types';
 import { withAlpha } from '../../utils/colors';
 import type { TimeWindow } from '../../utils/temporal';
+import { dimIfNeeded, type CorrelationSet } from '../../utils/correlate';
 
 interface Options {
   features: ExportControlFeature[];
@@ -11,6 +12,7 @@ interface Options {
   hoveredId: string | null;
   pulsePhase: number;
   timeWindow: TimeWindow;
+  correlation: CorrelationSet | null;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
@@ -20,7 +22,7 @@ const filterExt = new DataFilterExtension({ filterSize: 1 });
 const BASE_RGB: [number, number, number] = [255, 110, 110];
 
 export function buildExportControlLayers(opts: Options) {
-  const { features, selectedId, hoveredId, pulsePhase, timeWindow, onClick, onHover } = opts;
+  const { features, selectedId, hoveredId, pulsePhase, timeWindow, correlation, onClick, onHover } = opts;
   const getPosition = (f: ExportControlFeature) => f.geometry.coordinates as [number, number];
   const getFilterValue = (f: ExportControlFeature) => [f.properties.listed_year];
 
@@ -34,7 +36,7 @@ export function buildExportControlLayers(opts: Options) {
     getPosition,
     filled: false,
     stroked: true,
-    getLineColor: withAlpha(BASE_RGB, 240),
+    getLineColor: (f) => withAlpha(BASE_RGB, dimIfNeeded(240, f.properties.id, correlation)),
     lineWidthMinPixels: 1.2,
     getRadius: 28000,
     radiusMinPixels: 5,
@@ -47,7 +49,7 @@ export function buildExportControlLayers(opts: Options) {
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
-      getLineColor: [selectedId, hoveredId],
+      getLineColor: [selectedId, hoveredId, correlation?.key ?? null],
     },
     parameters: { depthCompare: 'always' },
   });
@@ -56,7 +58,7 @@ export function buildExportControlLayers(opts: Options) {
     id: 'export-controls-dot',
     data: features,
     getPosition,
-    getFillColor: withAlpha(BASE_RGB, 240),
+    getFillColor: (f) => withAlpha(BASE_RGB, dimIfNeeded(240, f.properties.id, correlation)),
     getRadius: 4000,
     radiusMinPixels: 1.5,
     radiusMaxPixels: 4,
@@ -66,6 +68,9 @@ export function buildExportControlLayers(opts: Options) {
     extensions: [filterExt],
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
+    updateTriggers: {
+      getFillColor: [correlation?.key ?? null],
+    },
     parameters: { depthCompare: 'always' },
   });
 

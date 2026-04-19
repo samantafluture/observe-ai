@@ -14,7 +14,9 @@ export type LayerId =
   | 'supply-trade'
   | 'patents'
   | 'export-controls'
-  | 'coauthorship';
+  | 'coauthorship'
+  | 'esg'
+  | 'ai-jobs';
 
 export type LayerKind =
   | 'facility'
@@ -24,7 +26,9 @@ export type LayerKind =
   | 'trade'
   | 'patent'
   | 'export-control'
-  | 'coauthorship';
+  | 'coauthorship'
+  | 'esg'
+  | 'job-posting';
 
 export type LayerCategory =
   | 'compute'
@@ -33,7 +37,9 @@ export type LayerCategory =
   | 'regulatory'
   | 'supply'
   | 'money'
-  | 'research';
+  | 'research'
+  | 'environment'
+  | 'labor';
 
 export interface Provenance {
   sources: string[];
@@ -159,6 +165,39 @@ export interface CoauthorshipProperties {
 export type CoauthorshipFeature = Feature<LineString, CoauthorshipProperties>;
 export type CoauthorshipCollection = FeatureCollection<LineString, CoauthorshipProperties>;
 
+// Phase 5 — ESG (energy + water) annotation for a facility, one record per
+// facility/year. Joins to FacilityProperties.id via `facility_id`.
+export interface EsgProperties {
+  id: string;
+  facility_id: string;
+  operator: string;
+  facility_name: string;
+  country?: string;
+  year: number;
+  energy_mwh: number;  // electricity consumption, MWh/yr
+  water_m3: number;    // freshwater withdrawal, m³/yr
+  pue?: number;        // power usage effectiveness (fleet avg if facility-level unavailable)
+  provenance?: Provenance;
+}
+
+export type EsgFeature = Feature<Point, EsgProperties>;
+export type EsgCollection = FeatureCollection<Point, EsgProperties>;
+
+// Phase 5 — AI job postings / concentrations at a city. Count of active
+// postings in `year` matching AI-relevant SOC codes (15-1299.09 etc).
+export interface JobPostingProperties {
+  id: string;
+  city: string;
+  country: string;
+  year: number;
+  postings: number;
+  source: string;  // e.g. "BLS OEWS", "Lightcast (sampled)"
+  provenance?: Provenance;
+}
+
+export type JobPostingFeature = Feature<Point, JobPostingProperties>;
+export type JobPostingCollection = FeatureCollection<Point, JobPostingProperties>;
+
 export type AnyFeature =
   | FacilityFeature
   | RegulatoryFeature
@@ -167,7 +206,9 @@ export type AnyFeature =
   | TradeArcFeature
   | PatentFeature
   | ExportControlFeature
-  | CoauthorshipFeature;
+  | CoauthorshipFeature
+  | EsgFeature
+  | JobPostingFeature;
 
 export type AnyCollection = FeatureCollection<Geometry, Record<string, unknown>>;
 
@@ -218,6 +259,16 @@ export interface CoauthorshipLayerMeta extends LayerMetaBase {
   color: [number, number, number];
 }
 
+export interface EsgLayerMeta extends LayerMetaBase {
+  kind: 'esg';
+  color: [number, number, number];
+}
+
+export interface JobPostingLayerMeta extends LayerMetaBase {
+  kind: 'job-posting';
+  color: [number, number, number];
+}
+
 export type LayerMeta =
   | FacilityLayerMeta
   | RegulatoryLayerMeta
@@ -226,7 +277,9 @@ export type LayerMeta =
   | TradeLayerMeta
   | PatentLayerMeta
   | ExportControlLayerMeta
-  | CoauthorshipLayerMeta;
+  | CoauthorshipLayerMeta
+  | EsgLayerMeta
+  | JobPostingLayerMeta;
 
 export interface GlobeViewState {
   longitude: number;

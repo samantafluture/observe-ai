@@ -5,10 +5,20 @@ import { useFacilityData } from '../../hooks/useFacilityData';
 import { operatorColor, REGIME_COLOR, REGIME_LABEL } from '../../utils/colors';
 import { LAYERS } from '../../utils/constants';
 import { formatUsd } from '../../utils/format';
+import {
+  CORRELATION_COLOR,
+  RELATION_LABEL,
+  type CorrelationSet,
+  type Relation,
+  type RelationKind,
+} from '../../utils/correlate';
 import type {
+  AnyFeature,
   CoauthorshipFeature,
+  EsgFeature,
   ExportControlFeature,
   FacilityFeature,
+  JobPostingFeature,
   MoneyFlowFeature,
   PatentFeature,
   Provenance,
@@ -19,6 +29,8 @@ import type {
 
 export function DetailPanel() {
   const feature = useGlobeStore((s) => s.selectedFeature);
+  const setSelected = useGlobeStore((s) => s.setSelected);
+  const correlation = useGlobeStore((s) => s.correlation);
   const clear = useGlobeStore((s) => s.clearSelection);
   const [, setUrlSelected] = useUrlSelected();
   const { data } = useFacilityData();
@@ -44,12 +56,20 @@ export function DetailPanel() {
     void setUrlSelected(null);
   };
 
+  const jumpTo = (f: AnyFeature) => {
+    setSelected(f);
+    const id = (f.properties as { id?: string }).id;
+    if (id) void setUrlSelected(id);
+  };
+
   const id = (feature.properties as { id?: string } | undefined)?.id ?? '';
   const isMoney = id.startsWith('money-');
   const isTrade = id.startsWith('trade-');
   const isPatent = id.startsWith('patent-');
   const isExportControl = id.startsWith('ec-');
   const isCoauth = id.startsWith('coauth-');
+  const isEsg = id.startsWith('esg-');
+  const isJob = id.startsWith('job-');
 
   return (
     <aside
@@ -58,9 +78,10 @@ export function DetailPanel() {
         absolute z-30
         left-4 right-4 bottom-32
         md:left-auto md:right-6 md:top-24 md:bottom-auto
-        md:w-[320px]
+        md:w-[340px]
         rounded border border-phosphor-800/70 bg-black/85 p-4
         backdrop-blur-sm shadow-2xl
+        max-h-[calc(100vh-200px)] overflow-y-auto
       "
     >
       {feature.geometry.type === 'Point' ? (
@@ -70,6 +91,10 @@ export function DetailPanel() {
           <PatentDetail feature={feature as PatentFeature} onClose={onClose} />
         ) : isExportControl ? (
           <ExportControlDetail feature={feature as ExportControlFeature} onClose={onClose} />
+        ) : isEsg ? (
+          <EsgDetail feature={feature as EsgFeature} onClose={onClose} />
+        ) : isJob ? (
+          <JobPostingDetail feature={feature as JobPostingFeature} onClose={onClose} />
         ) : (
           <FacilityDetail feature={feature as FacilityFeature} onClose={onClose} />
         )
@@ -88,7 +113,97 @@ export function DetailPanel() {
       ) : (
         <RegulatoryDetail feature={feature as RegulatoryFeature} onClose={onClose} />
       )}
+
+      <RelatedBlock correlation={correlation} onJump={jumpTo} />
     </aside>
+  );
+}
+
+/**
+ * Phase 5 — cross-layer relations block.
+ *
+ * Groups the correlation set by relation kind and emits a click-through row
+ * per neighbor. A relation row click reselects the neighbor, which cascades
+ * to the URL, the correlation engine (new root), and every layer's dim
+ * state — effectively walking the graph one hop at a time.
+ */
+function RelatedBlock({
+  correlation,
+  onJump,
+}: {
+  correlation: CorrelationSet | null;
+  onJump: (f: AnyFeature) => void;
+}) {
+  if (!correlation || correlation.relations.length === 0) return null;
+
+  const grouped = new Map<RelationKind, Relation[]>();
+  for (const r of correlation.relations) {
+    const list = grouped.get(r.kind) ?? [];
+    list.push(r);
+    grouped.set(r.kind, list);
+  }
+
+  const order: RelationKind[] = [
+    'supply-upstream',
+    'supply-downstream',
+    'co-located',
+    'regulated-by',
+    'investment',
+    'export-controlled',
+    'research-tie',
+    'trade-partner',
+    'patent-cluster',
+    'jobs-cluster',
+    'esg-annotation',
+  ];
+
+  return (
+    <div className="mt-4 border-t border-phosphor-900 pt-3">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+        <span>Related · cross-layer</span>
+        <span className="tabular-nums text-phosphor-700">
+          {correlation.relations.length}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-col gap-2.5">
+        {order.map((kind) => {
+          const items = grouped.get(kind);
+          if (!items || items.length === 0) return null;
+          const rgb = CORRELATION_COLOR[kind];
+          return (
+            <section key={kind}>
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-phosphor-600">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor: `rgb(${rgb.join(',')})`,
+                    boxShadow: `0 0 6px rgb(${rgb.join(',')})`,
+                  }}
+                />
+                <span>{RELATION_LABEL[kind]}</span>
+                <span className="ml-auto tabular-nums text-phosphor-800">{items.length}</span>
+              </div>
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {items.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => onJump(r.feature)}
+                      className="block w-full rounded px-2 py-1 text-left text-[11px] text-phosphor-400 hover:bg-phosphor-900/40 hover:text-phosphor-200"
+                    >
+                      <div className="truncate leading-tight text-phosphor-300">{r.label}</div>
+                      {r.detail && (
+                        <div className="truncate text-[10px] text-phosphor-700">{r.detail}</div>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -541,6 +656,113 @@ function CoauthorshipDetail({
         <dd className="text-phosphor-300 font-mono">{year}</dd>
         <dt className="text-phosphor-700">Papers</dt>
         <dd className="text-phosphor-300 font-mono">{weight.toLocaleString()}</dd>
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function EsgDetail({
+  feature,
+  onClose,
+}: {
+  feature: EsgFeature;
+  onClose: () => void;
+}) {
+  const { facility_name, operator, year, energy_mwh, water_m3, pue, country } =
+    feature.properties;
+  const twh = energy_mwh / 1e6;
+  const mm3 = water_m3 / 1e6;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: 'rgb(140,220,180)',
+                boxShadow: '0 0 8px rgb(140,220,180)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              Energy + water · ESG
+            </span>
+          </div>
+          <h2 className="mt-1 truncate text-base font-medium text-phosphor-200">
+            {facility_name}
+          </h2>
+          <div className="text-xs text-phosphor-400">{operator}</div>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">Year</dt>
+        <dd className="text-phosphor-300 font-mono">{year}</dd>
+        <dt className="text-phosphor-700">Electricity</dt>
+        <dd className="text-phosphor-300 font-mono">
+          {twh >= 1 ? `${twh.toFixed(2)} TWh` : `${energy_mwh.toLocaleString()} MWh`}
+        </dd>
+        <dt className="text-phosphor-700">Water</dt>
+        <dd className="text-phosphor-300 font-mono">
+          {mm3 >= 1 ? `${mm3.toFixed(2)}M m³` : `${Math.round(water_m3).toLocaleString()} m³`}
+        </dd>
+        {pue != null && (
+          <>
+            <dt className="text-phosphor-700">PUE (fleet)</dt>
+            <dd className="text-phosphor-300 font-mono">{pue.toFixed(2)}</dd>
+          </>
+        )}
+        {country && (
+          <>
+            <dt className="text-phosphor-700">Country</dt>
+            <dd className="text-phosphor-300">{country}</dd>
+          </>
+        )}
+      </dl>
+      <ProvenanceBlock provenance={feature.properties.provenance} />
+    </>
+  );
+}
+
+function JobPostingDetail({
+  feature,
+  onClose,
+}: {
+  feature: JobPostingFeature;
+  onClose: () => void;
+}) {
+  const { city, country, year, postings, source } = feature.properties;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: 'rgb(255,180,210)',
+                boxShadow: '0 0 8px rgb(255,180,210)',
+              }}
+            />
+            <span className="text-[10px] uppercase tracking-[0.22em] text-phosphor-700">
+              AI job postings
+            </span>
+          </div>
+          <h2 className="mt-1 truncate text-base font-medium text-phosphor-200">{city}</h2>
+          <div className="text-xs text-phosphor-400">{country}</div>
+        </div>
+        <CloseButton onClose={onClose} />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="text-phosphor-700">Year</dt>
+        <dd className="text-phosphor-300 font-mono">{year}</dd>
+        <dt className="text-phosphor-700">Postings</dt>
+        <dd className="text-phosphor-300 font-mono">{postings.toLocaleString()}</dd>
+        <dt className="text-phosphor-700">Source</dt>
+        <dd className="text-phosphor-300">{source}</dd>
       </dl>
       <ProvenanceBlock provenance={feature.properties.provenance} />
     </>

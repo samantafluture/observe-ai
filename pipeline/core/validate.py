@@ -7,7 +7,16 @@ so the CI workflow surfaces failures loudly.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from .schema import CoauthorArc, ExportControl, Facility, MoneyFlow, Patent, TradeArc
+from .schema import (
+    CoauthorArc,
+    Esg,
+    ExportControl,
+    Facility,
+    JobPosting,
+    MoneyFlow,
+    Patent,
+    TradeArc,
+)
 
 
 class ValidationError(RuntimeError):
@@ -78,4 +87,24 @@ def validate_coauthorship(records: list[CoauthorArc]) -> None:
             raise ValidationError(f"{r.id}: negative weight")
         _check_coords(r.from_lng, r.from_lat, r.id)
         _check_coords(r.to_lng, r.to_lat, r.id)
+    _check_unique_ids(r.id for r in records)
+
+
+def validate_esg(records: list[Esg]) -> None:
+    for r in records:
+        if r.energy_mwh < 0 or r.water_m3 < 0:
+            raise ValidationError(f"{r.id}: negative energy/water")
+        if r.year < 1900 or r.year > 2100:
+            raise ValidationError(f"{r.id}: implausible year {r.year}")
+        _check_coords(r.lng, r.lat, r.id)
+    _check_unique_ids(r.id for r in records)
+
+
+def validate_job_postings(records: list[JobPosting]) -> None:
+    for r in records:
+        if r.postings < 0:
+            raise ValidationError(f"{r.id}: negative postings")
+        if r.year < 1900 or r.year > 2100:
+            raise ValidationError(f"{r.id}: implausible year {r.year}")
+        _check_coords(r.lng, r.lat, r.id)
     _check_unique_ids(r.id for r in records)

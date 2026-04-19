@@ -16,6 +16,8 @@ const POINT_LAYERS = new Set<LayerId>([
   'money-flow',
   'patents',
   'export-controls',
+  'esg',
+  'ai-jobs',
 ]);
 const ARC_LAYERS = new Set<LayerId>(['supply-trade', 'coauthorship']);
 const GEOJSON_ONLY = new Set<LayerId>(['regulatory-zones', 'supply-arcs']);

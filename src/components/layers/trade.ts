@@ -4,12 +4,14 @@ import type { PickingInfo } from '@deck.gl/core';
 import type { TradeArcFeature } from '../../types';
 import { withAlpha } from '../../utils/colors';
 import type { TimeWindow } from '../../utils/temporal';
+import { dimIfNeeded, type CorrelationSet } from '../../utils/correlate';
 
 interface Options {
   features: TradeArcFeature[];
   selectedId: string | null;
   pulsePhase: number;
   timeWindow: TimeWindow;
+  correlation: CorrelationSet | null;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
@@ -34,8 +36,11 @@ function normalize(valueUsd: number): number {
 }
 
 export function buildTradeLayers(opts: Options) {
-  const { features, selectedId, pulsePhase, timeWindow, onClick, onHover } = opts;
+  const { features, selectedId, pulsePhase, timeWindow, correlation, onClick, onHover } = opts;
   const getFilterValue = (f: TradeArcFeature) => [f.properties.year];
+
+  const colorAlpha = (f: TradeArcFeature) =>
+    dimIfNeeded(80 + Math.round(140 * normalize(f.properties.value_usd)), f.properties.id, correlation);
 
   const primary = new ArcLayer<TradeArcFeature, DataFilterExtensionProps<TradeArcFeature>>({
     id: 'supply-trade',
@@ -43,8 +48,8 @@ export function buildTradeLayers(opts: Options) {
     greatCircle: true,
     getSourcePosition: getSource,
     getTargetPosition: getTarget,
-    getSourceColor: (f) => withAlpha(SOURCE, 80 + Math.round(140 * normalize(f.properties.value_usd))),
-    getTargetColor: (f) => withAlpha(TARGET, 80 + Math.round(140 * normalize(f.properties.value_usd))),
+    getSourceColor: (f) => withAlpha(SOURCE, colorAlpha(f)),
+    getTargetColor: (f) => withAlpha(TARGET, colorAlpha(f)),
     getWidth: (f) => 0.8 + 3.5 * normalize(f.properties.value_usd),
     widthMinPixels: 0.8,
     widthMaxPixels: 6,
@@ -55,8 +60,8 @@ export function buildTradeLayers(opts: Options) {
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
-      getSourceColor: [selectedId],
-      getTargetColor: [selectedId],
+      getSourceColor: [selectedId, correlation?.key ?? null],
+      getTargetColor: [selectedId, correlation?.key ?? null],
     },
     parameters: { depthCompare: 'always' },
   });

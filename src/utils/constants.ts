@@ -98,6 +98,22 @@ export const LAYERS: LayerMeta[] = [
     url: '/data/coauthorship.geojson',
     color: [120, 230, 220],
   },
+  {
+    kind: 'esg',
+    id: 'esg',
+    label: 'Energy + water (ESG)',
+    category: 'environment',
+    url: '/data/esg.geojson',
+    color: [140, 220, 180],
+  },
+  {
+    kind: 'job-posting',
+    id: 'ai-jobs',
+    label: 'AI job postings',
+    category: 'labor',
+    url: '/data/ai-jobs.geojson',
+    color: [255, 180, 210],
+  },
 ];
 
 export const LAYER_IDS: LayerId[] = LAYERS.map((l) => l.id);
@@ -110,6 +126,8 @@ export const CATEGORIES: { id: LayerCategory; label: string }[] = [
   { id: 'supply', label: 'Supply chain' },
   { id: 'money', label: 'Money flow' },
   { id: 'research', label: 'Research' },
+  { id: 'environment', label: 'Energy + water' },
+  { id: 'labor', label: 'Labor' },
 ];
 
 export const BASEMAP_COUNTRIES_URL = '/data/ne_110m_countries.geojson';
