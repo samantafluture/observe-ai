@@ -4,6 +4,7 @@ import type { PickingInfo } from '@deck.gl/core';
 import type { MoneyFlowFeature } from '../../types';
 import { withAlpha } from '../../utils/colors';
 import type { TimeWindow } from '../../utils/temporal';
+import { dimIfNeeded, type CorrelationSet } from '../../utils/correlate';
 
 interface Options {
   features: MoneyFlowFeature[];
@@ -11,6 +12,7 @@ interface Options {
   hoveredId: string | null;
   pulsePhase: number;
   timeWindow: TimeWindow;
+  correlation: CorrelationSet | null;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
@@ -29,7 +31,7 @@ function radiusMeters(amountUsd: number): number {
 }
 
 export function buildMoneyLayers(opts: Options) {
-  const { features, selectedId, hoveredId, pulsePhase, timeWindow, onClick, onHover } = opts;
+  const { features, selectedId, hoveredId, pulsePhase, timeWindow, correlation, onClick, onHover } = opts;
   const getPosition = (f: MoneyFlowFeature) => f.geometry.coordinates as [number, number];
   const getFilterValue = (f: MoneyFlowFeature) => [f.properties.year];
 
@@ -39,7 +41,7 @@ export function buildMoneyLayers(opts: Options) {
     id: 'money-flow-halo',
     data: features,
     getPosition,
-    getFillColor: withAlpha(BASE_RGB, 40),
+    getFillColor: (f) => withAlpha(BASE_RGB, dimIfNeeded(40, f.properties.id, correlation)),
     getRadius: (f) => radiusMeters(f.properties.amount_usd) * 1.6,
     radiusMinPixels: 8,
     radiusMaxPixels: 64,
@@ -50,6 +52,9 @@ export function buildMoneyLayers(opts: Options) {
     extensions: [filterExt],
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
+    updateTriggers: {
+      getFillColor: [correlation?.key ?? null],
+    },
     parameters: { depthCompare: 'always' },
   });
 
@@ -57,11 +62,12 @@ export function buildMoneyLayers(opts: Options) {
     id: 'money-flow-core',
     data: features,
     getPosition,
-    getFillColor: withAlpha(BASE_RGB, 220),
+    getFillColor: (f) => withAlpha(BASE_RGB, dimIfNeeded(220, f.properties.id, correlation)),
     getLineColor: (f) => {
       const id = f.properties.id;
       if (id === selectedId) return [255, 255, 255, 255];
       if (id === hoveredId) return [245, 245, 245, 220];
+      if (correlation && correlation.ids.has(id)) return [255, 255, 255, 200];
       return [240, 240, 240, 110];
     },
     getRadius: (f) => radiusMeters(f.properties.amount_usd),
@@ -77,7 +83,8 @@ export function buildMoneyLayers(opts: Options) {
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
-      getLineColor: [selectedId, hoveredId],
+      getLineColor: [selectedId, hoveredId, correlation?.key ?? null],
+      getFillColor: [correlation?.key ?? null],
     },
     parameters: { depthCompare: 'always' },
   });

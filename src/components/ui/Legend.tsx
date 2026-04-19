@@ -11,9 +11,9 @@ const REGIME_ORDER: (keyof typeof REGIME_COLOR)[] = [
 export function Legend() {
   return (
     <div className="pointer-events-auto hidden rounded border border-phosphor-800/70 bg-black/70 px-3 py-2 text-[10px] text-phosphor-700 backdrop-blur-sm md:block">
-      <div className="uppercase tracking-[0.22em]">Phase 04</div>
+      <div className="uppercase tracking-[0.22em]">Phase 05</div>
       <div className="mt-1 max-w-[220px] leading-relaxed text-phosphor-500">
-        Temporal scrubber · animated supply trips · patents · export controls · co-authorship.
+        Cross-layer correlation · energy + water · AI job postings · side-by-side · embed.
       </div>
       <div className="mt-2 border-t border-phosphor-900 pt-2">
         <div className="mb-1 uppercase tracking-[0.22em] text-phosphor-800">Regulatory regime</div>
@@ -86,7 +86,32 @@ export function Legend() {
             />
             <span>Export controls · CSL listings</span>
           </li>
+          <li className="flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{
+                background: 'radial-gradient(circle, rgb(255,230,150) 40%, rgb(120,220,230) 80%)',
+                boxShadow: '0 0 6px rgba(120,220,230,0.6)',
+              }}
+            />
+            <span>Energy (core) + water (halo)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: 'rgb(255,180,210)', boxShadow: '0 0 6px rgb(255,180,210)' }}
+            />
+            <span>AI job postings · sqrt(count)</span>
+          </li>
         </ul>
+      </div>
+      <div className="mt-2 border-t border-phosphor-900 pt-2">
+        <div className="mb-1 uppercase tracking-[0.22em] text-phosphor-800">
+          Correlation engine
+        </div>
+        <div className="max-w-[220px] leading-relaxed text-phosphor-500">
+          Click any entity: unrelated layers dim, related entities across every layer light up, arcs draw the graph edges. Click "Related" rows to walk the graph one hop at a time.
+        </div>
       </div>
     </div>
   );

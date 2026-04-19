@@ -11,6 +11,8 @@ import {
   useUrlLayers,
   useUrlSelected,
   useUrlTimeline,
+  useUrlFocus,
+  type GlobeVariant,
 } from '../hooks/useUrlState';
 import { buildBasemapLayers } from './layers/basemap';
 import { buildFacilityLayers } from './layers/facilities';
@@ -21,12 +23,18 @@ import { buildTradeLayers } from './layers/trade';
 import { buildPatentLayers } from './layers/patents';
 import { buildExportControlLayers } from './layers/exportControls';
 import { buildCoauthorshipLayers } from './layers/coauthorship';
+import { buildEsgLayers } from './layers/esg';
+import { buildAiJobLayers } from './layers/aiJobs';
+import { buildCorrelationLayers } from './layers/correlation';
 import { AUTO_ROTATE_DEG_PER_SEC, GLOBE_RESOLUTION, INITIAL_VIEW, LAYERS } from '../utils/constants';
+import { buildCorrelationSet, type CorrelationSet } from '../utils/correlate';
 import type {
   AnyFeature,
   CoauthorshipFeature,
+  EsgFeature,
   ExportControlFeature,
   FacilityFeature,
+  JobPostingFeature,
   LayerId,
   MoneyFlowFeature,
   PatentFeature,
@@ -34,13 +42,23 @@ import type {
   TradeArcFeature,
 } from '../types';
 
-const GLOBE_VIEW = new GlobeView({
+interface Props {
+  variant?: GlobeVariant;
+}
+
+const GLOBE_VIEW_PRIMARY = new GlobeView({
   id: 'globe',
   resolution: GLOBE_RESOLUTION,
   controller: { dragRotate: false },
 });
+const GLOBE_VIEW_COMPARE = new GlobeView({
+  id: 'globe-compare',
+  resolution: GLOBE_RESOLUTION,
+  controller: { dragRotate: false },
+});
 
-export function Globe() {
+export function Globe({ variant = 'primary' }: Props) {
+  const isPrimary = variant === 'primary';
   const { countries, land } = useBasemapData();
   const { data: facilities } = useFacilityData();
 
@@ -51,7 +69,7 @@ export function Globe() {
     setLongitude,
     setLatitude,
     setZoom,
-  } = useUrlViewState();
+  } = useUrlViewState(variant);
 
   const [viewState, setViewState] = useState<MapViewState>({
     longitude: urlLng,
@@ -61,24 +79,35 @@ export function Globe() {
     maxZoom: INITIAL_VIEW.maxZoom,
   });
 
-  const [activeLayers] = useUrlLayers();
-  const [urlSelected, setUrlSelected] = useUrlSelected();
-  const { t0, t1, play } = useUrlTimeline();
+  const [activeLayers] = useUrlLayers(variant);
+  const [urlSelected, setUrlSelected] = useUrlSelected(variant);
+  const { t0, t1, play } = useUrlTimeline(variant);
   const timeWindow = useMemo(() => ({ t0, t1 }), [t0, t1]);
+  const [urlFocus, setUrlFocus] = useUrlFocus();
 
-  const selectedId = useGlobeStore((s) => s.selectedId);
-  const hoveredId = useGlobeStore((s) => s.hoveredId);
-  const setSelected = useGlobeStore((s) => s.setSelected);
-  const setHovered = useGlobeStore((s) => s.setHovered);
+  // The shared Zustand store tracks the primary globe's selection + hover.
+  // Compare-mode selection stays local to this component so tooltip and
+  // DetailPanel continue to reflect only the primary globe.
+  const sharedSelectedId = useGlobeStore((s) => s.selectedId);
+  const sharedHoveredId = useGlobeStore((s) => s.hoveredId);
+  const setSharedSelected = useGlobeStore((s) => s.setSelected);
+  const setSharedHovered = useGlobeStore((s) => s.setHovered);
+  const setSharedCorrelation = useGlobeStore((s) => s.setCorrelation);
   const autoRotate = useGlobeStore((s) => s.autoRotate);
   const setAutoRotate = useGlobeStore((s) => s.setAutoRotate);
+
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
+  const [localSelectedFeature, setLocalSelectedFeature] = useState<AnyFeature | null>(null);
+
+  const selectedId = isPrimary ? sharedSelectedId : localSelectedId;
+  const hoveredId = isPrimary ? sharedHoveredId : null;
+
   const autoRotateRef = useRef(autoRotate);
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
 
-  // Hydrate selection from URL once data has loaded. Walks every loaded
-  // collection regardless of kind so polygons and arcs survive deep links.
+  // Hydrate selection from URL once data has loaded. Works for both variants.
   const hydratedRef = useRef(false);
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -90,12 +119,68 @@ export function Globe() {
         (f) => (f.properties as { id?: string })?.id === urlSelected,
       );
       if (found) {
-        setSelected(found);
+        if (isPrimary) {
+          setSharedSelected(found);
+        } else {
+          setLocalSelectedId(urlSelected);
+          setLocalSelectedFeature(found);
+        }
         hydratedRef.current = true;
         return;
       }
     }
-  }, [urlSelected, facilities, setSelected]);
+  }, [urlSelected, facilities, setSharedSelected, isPrimary]);
+
+  // Phase 5 — `?focus=<id>` deep links to a specific entity and recenters
+  // the camera on it. Primary only; runs once per URL change.
+  const focusedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isPrimary) return;
+    if (!urlFocus || urlFocus === focusedRef.current) return;
+    for (const layer of LAYERS) {
+      const fc = facilities[layer.id];
+      if (!fc) continue;
+      const found = (fc.features as unknown as AnyFeature[]).find(
+        (f) => (f.properties as { id?: string })?.id === urlFocus,
+      );
+      if (!found) continue;
+      // Compute a center for the feature so the camera snaps near it.
+      const geom = found.geometry;
+      let center: [number, number] | null = null;
+      if (geom.type === 'Point') {
+        center = geom.coordinates as [number, number];
+      } else if (geom.type === 'LineString') {
+        const c = geom.coordinates as [number, number][];
+        if (c.length) {
+          center = [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2];
+        }
+      }
+      if (center) {
+        setViewState((vs) => ({ ...vs, longitude: center![0], latitude: center![1], zoom: 3 }));
+        void setLongitude(Number(center[0].toFixed(2)));
+        void setLatitude(Number(center[1].toFixed(2)));
+        void setZoom(3);
+        if (autoRotateRef.current) setAutoRotate(false);
+      }
+      setSharedSelected(found);
+      void setUrlSelected(urlFocus);
+      focusedRef.current = urlFocus;
+      // Consume the focus param so future interactions don't keep snapping.
+      void setUrlFocus(null);
+      return;
+    }
+  }, [
+    urlFocus,
+    facilities,
+    isPrimary,
+    setSharedSelected,
+    setUrlSelected,
+    setUrlFocus,
+    setLongitude,
+    setLatitude,
+    setZoom,
+    setAutoRotate,
+  ]);
 
   // rAF loop drives pulse, optional auto-rotation, and (when the timeline is
   // playing) the TripsLayer head along supply arcs.
@@ -113,10 +198,9 @@ export function Globe() {
       last = now;
       setPulsePhase((p) => (p + dt * 2) % (Math.PI * 2));
       if (playRef.current) {
-        // Head loops 0→1 once per ~1.4s so a chip "trip" reads at a glance.
         setTripHead((h) => (h + dt / 1.4) % 1);
       }
-      if (autoRotateRef.current) {
+      if (isPrimary && autoRotateRef.current) {
         setViewState((vs) => ({
           ...vs,
           longitude: ((vs.longitude + AUTO_ROTATE_DEG_PER_SEC * dt + 540) % 360) - 180,
@@ -126,7 +210,7 @@ export function Globe() {
     };
     frameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameId);
-  }, []);
+  }, [isPrimary]);
 
   const onViewStateChange = useCallback(
     ({
@@ -142,51 +226,75 @@ export function Globe() {
         !!interactionState?.isZooming ||
         !!interactionState?.isPanning;
       if (userInteracting) {
-        if (autoRotateRef.current) setAutoRotate(false);
+        if (isPrimary && autoRotateRef.current) setAutoRotate(false);
         void setLongitude(Number(next.longitude.toFixed(2)));
         void setLatitude(Number(next.latitude.toFixed(2)));
         void setZoom(Number(next.zoom.toFixed(2)));
       }
     },
-    [setAutoRotate, setLongitude, setLatitude, setZoom],
+    [setAutoRotate, setLongitude, setLatitude, setZoom, isPrimary],
   );
 
   const onClick = useCallback(
     (info: PickingInfo) => {
       const obj = info.object as AnyFeature | undefined;
       const id = (obj?.properties as { id?: string } | undefined)?.id;
-      if (id) {
-        setSelected(obj as AnyFeature);
-        void setUrlSelected(id);
+      if (isPrimary) {
+        if (id) {
+          setSharedSelected(obj as AnyFeature);
+          void setUrlSelected(id);
+        } else {
+          setSharedSelected(null);
+          void setUrlSelected(null);
+        }
       } else {
-        setSelected(null);
-        void setUrlSelected(null);
+        if (id) {
+          setLocalSelectedId(id);
+          setLocalSelectedFeature(obj as AnyFeature);
+          void setUrlSelected(id);
+        } else {
+          setLocalSelectedId(null);
+          setLocalSelectedFeature(null);
+          void setUrlSelected(null);
+        }
       }
     },
-    [setSelected, setUrlSelected],
+    [setSharedSelected, setUrlSelected, isPrimary],
   );
 
   const onHover = useCallback(
     (info: PickingInfo) => {
+      if (!isPrimary) return;
       const obj = info.object as AnyFeature | undefined;
       const id = (obj?.properties as { id?: string } | undefined)?.id;
       if (id) {
-        setHovered(obj as AnyFeature, info.x, info.y);
+        setSharedHovered(obj as AnyFeature, info.x, info.y);
       } else {
-        setHovered(null, 0, 0);
+        setSharedHovered(null, 0, 0);
       }
     },
-    [setHovered],
+    [setSharedHovered, isPrimary],
   );
+
+  // Phase 5 — derive the correlation set. Recomputed whenever the selection
+  // or the timeline window changes. Primary publishes to the store so
+  // DetailPanel can render the "Related" block; compare keeps it local.
+  const sharedSelectedFeature = useGlobeStore((s) => s.selectedFeature);
+  const selectedFeature = isPrimary ? sharedSelectedFeature : localSelectedFeature;
+  const correlation = useMemo<CorrelationSet | null>(() => {
+    if (!selectedFeature) return null;
+    return buildCorrelationSet(selectedFeature, facilities, t0, t1);
+  }, [selectedFeature, facilities, t0, t1]);
+
+  useEffect(() => {
+    if (!isPrimary) return;
+    setSharedCorrelation(correlation);
+  }, [correlation, setSharedCorrelation, isPrimary]);
 
   const layers = useMemo(() => {
     const baseLayers = buildBasemapLayers(land, countries);
     const active = new Set(activeLayers as LayerId[]);
 
-    // Render order: basemap → regulatory fills → coauthorship arcs →
-    // trade arcs → supply arcs (narrative) → patent halos → facility halos
-    // → export-control rings → money flow bubbles. Picking respects stack
-    // order so foreground markers win overlaps.
     const regulatoryLayers: Layer[] = [];
     const facilityLayers: Layer[] = [];
     const supplyLayers: Layer[] = [];
@@ -195,6 +303,8 @@ export function Globe() {
     const patentLayers: Layer[] = [];
     const exportControlLayers: Layer[] = [];
     const coauthorshipLayers: Layer[] = [];
+    const esgLayers: Layer[] = [];
+    const jobsLayers: Layer[] = [];
 
     for (const meta of LAYERS) {
       if (!active.has(meta.id)) continue;
@@ -210,6 +320,7 @@ export function Globe() {
             hoveredId,
             pulsePhase,
             timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
@@ -220,6 +331,7 @@ export function Globe() {
             data: fc,
             selectedId,
             timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
@@ -231,6 +343,7 @@ export function Globe() {
             selectedId,
             pulsePhase,
             timeWindow,
+            correlation,
             tripHead: play ? tripHead : null,
             onClick,
             onHover,
@@ -243,6 +356,7 @@ export function Globe() {
             selectedId,
             pulsePhase,
             timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
@@ -255,6 +369,7 @@ export function Globe() {
             hoveredId,
             pulsePhase,
             timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
@@ -267,6 +382,7 @@ export function Globe() {
             hoveredId,
             pulsePhase,
             timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
@@ -279,6 +395,7 @@ export function Globe() {
             hoveredId,
             pulsePhase,
             timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
@@ -290,12 +407,43 @@ export function Globe() {
             selectedId,
             pulsePhase,
             timeWindow,
+            correlation,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'esg') {
+        esgLayers.push(
+          ...buildEsgLayers({
+            features: fc.features as unknown as EsgFeature[],
+            selectedId,
+            hoveredId,
+            pulsePhase,
+            timeWindow,
+            correlation,
+            onClick,
+            onHover,
+          }),
+        );
+      } else if (meta.kind === 'job-posting') {
+        jobsLayers.push(
+          ...buildAiJobLayers({
+            features: fc.features as unknown as JobPostingFeature[],
+            selectedId,
+            hoveredId,
+            pulsePhase,
+            timeWindow,
+            correlation,
             onClick,
             onHover,
           }),
         );
       }
     }
+
+    // Correlation arcs sit above everything except money-flow bubbles so the
+    // narrative lines read over the dimmed layer stack.
+    const correlationLayers = buildCorrelationLayers({ correlation, pulsePhase });
 
     return [
       ...baseLayers,
@@ -304,9 +452,12 @@ export function Globe() {
       ...tradeLayers,
       ...supplyLayers,
       ...patentLayers,
+      ...jobsLayers,
+      ...esgLayers,
       ...facilityLayers,
       ...exportControlLayers,
       ...moneyLayers,
+      ...correlationLayers,
     ];
   }, [
     land,
@@ -319,6 +470,7 @@ export function Globe() {
     timeWindow,
     play,
     tripHead,
+    correlation,
     onClick,
     onHover,
   ]);
@@ -326,7 +478,7 @@ export function Globe() {
   return (
     <div className="absolute inset-0">
       <DeckGL
-        views={GLOBE_VIEW}
+        views={isPrimary ? GLOBE_VIEW_PRIMARY : GLOBE_VIEW_COMPARE}
         viewState={viewState}
         onViewStateChange={onViewStateChange}
         controller={{ dragRotate: false }}

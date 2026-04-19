@@ -4,6 +4,7 @@ import type { PickingInfo } from '@deck.gl/core';
 import type { FacilityFeature, LayerMeta } from '../../types';
 import { operatorColor, withAlpha } from '../../utils/colors';
 import { ALWAYS_YEAR, type TimeWindow } from '../../utils/temporal';
+import { dimIfNeeded, type CorrelationSet } from '../../utils/correlate';
 
 interface Options {
   layer: LayerMeta;
@@ -12,6 +13,7 @@ interface Options {
   hoveredId: string | null;
   pulsePhase: number;
   timeWindow: TimeWindow;
+  correlation: CorrelationSet | null;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
@@ -33,24 +35,22 @@ export function buildFacilityLayers(opts: Options) {
     hoveredId,
     pulsePhase,
     timeWindow,
+    correlation,
     onClick,
     onHover,
   } = opts;
 
   const getPosition = (f: FacilityFeature) => f.geometry.coordinates as [number, number];
-  // Features without an `opened` year stay visible at every window position
-  // (we have nothing to filter on). Anchoring at TIMELINE_MIN_YEAR keeps them
-  // on for the standard window range.
   const getFilterValue = (f: FacilityFeature) => [f.properties.opened ?? ALWAYS_YEAR];
 
-  // Halo pulses slightly — single uniform via radiusScale (GPU-cheap).
   const haloScale = 1 + 0.15 * Math.sin(pulsePhase);
 
   const halo = new ScatterplotLayer<FacilityFeature, DataFilterExtensionProps<FacilityFeature>>({
     id: `${layer.id}-halo`,
     data: features,
     getPosition,
-    getFillColor: (f) => withAlpha(operatorColor(f.properties.operator), 50),
+    getFillColor: (f) =>
+      withAlpha(operatorColor(f.properties.operator), dimIfNeeded(50, f.properties.id, correlation)),
     getRadius: 40000,
     radiusMinPixels: 6,
     radiusMaxPixels: 24,
@@ -61,6 +61,9 @@ export function buildFacilityLayers(opts: Options) {
     extensions: [filterExt],
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
+    updateTriggers: {
+      getFillColor: [correlation?.key ?? null],
+    },
     parameters: { depthCompare: 'always' },
   });
 
@@ -68,11 +71,13 @@ export function buildFacilityLayers(opts: Options) {
     id: `${layer.id}-core`,
     data: features,
     getPosition,
-    getFillColor: (f) => withAlpha(operatorColor(f.properties.operator), 240),
+    getFillColor: (f) =>
+      withAlpha(operatorColor(f.properties.operator), dimIfNeeded(240, f.properties.id, correlation)),
     getLineColor: (f) => {
       const id = f.properties.id;
       if (id === selectedId) return [255, 255, 255, 255];
       if (id === hoveredId) return [240, 240, 240, 230];
+      if (correlation && correlation.ids.has(id)) return [255, 255, 255, 200];
       return [240, 240, 240, 120];
     },
     getRadius: 12000,
@@ -89,7 +94,8 @@ export function buildFacilityLayers(opts: Options) {
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
-      getLineColor: [selectedId, hoveredId],
+      getLineColor: [selectedId, hoveredId, correlation?.key ?? null],
+      getFillColor: [correlation?.key ?? null],
     },
     parameters: { depthCompare: 'always' },
   });

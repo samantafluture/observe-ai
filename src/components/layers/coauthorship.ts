@@ -4,12 +4,14 @@ import type { PickingInfo } from '@deck.gl/core';
 import type { CoauthorshipFeature } from '../../types';
 import { withAlpha } from '../../utils/colors';
 import type { TimeWindow } from '../../utils/temporal';
+import { dimIfNeeded, type CorrelationSet } from '../../utils/correlate';
 
 interface Options {
   features: CoauthorshipFeature[];
   selectedId: string | null;
   pulsePhase: number;
   timeWindow: TimeWindow;
+  correlation: CorrelationSet | null;
   onClick: (info: PickingInfo) => void;
   onHover: (info: PickingInfo) => void;
 }
@@ -33,8 +35,11 @@ function normalize(weight: number): number {
 }
 
 export function buildCoauthorshipLayers(opts: Options) {
-  const { features, selectedId, pulsePhase, timeWindow, onClick, onHover } = opts;
+  const { features, selectedId, pulsePhase, timeWindow, correlation, onClick, onHover } = opts;
   const getFilterValue = (f: CoauthorshipFeature) => [f.properties.year];
+
+  const alpha = (f: CoauthorshipFeature) =>
+    dimIfNeeded(80 + Math.round(140 * normalize(f.properties.weight)), f.properties.id, correlation);
 
   const primary = new ArcLayer<CoauthorshipFeature, DataFilterExtensionProps<CoauthorshipFeature>>({
     id: 'coauthorship',
@@ -42,10 +47,8 @@ export function buildCoauthorshipLayers(opts: Options) {
     greatCircle: true,
     getSourcePosition: getSource,
     getTargetPosition: getTarget,
-    getSourceColor: (f) =>
-      withAlpha(SOURCE, 80 + Math.round(140 * normalize(f.properties.weight))),
-    getTargetColor: (f) =>
-      withAlpha(TARGET, 80 + Math.round(140 * normalize(f.properties.weight))),
+    getSourceColor: (f) => withAlpha(SOURCE, alpha(f)),
+    getTargetColor: (f) => withAlpha(TARGET, alpha(f)),
     getWidth: (f) => 0.6 + 3 * normalize(f.properties.weight),
     widthMinPixels: 0.5,
     widthMaxPixels: 5,
@@ -56,8 +59,8 @@ export function buildCoauthorshipLayers(opts: Options) {
     getFilterValue,
     filterRange: [timeWindow.t0, timeWindow.t1],
     updateTriggers: {
-      getSourceColor: [selectedId],
-      getTargetColor: [selectedId],
+      getSourceColor: [selectedId, correlation?.key ?? null],
+      getTargetColor: [selectedId, correlation?.key ?? null],
     },
     parameters: { depthCompare: 'always' },
   });
