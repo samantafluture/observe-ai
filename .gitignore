@@ -13,6 +13,9 @@ dist
 coverage
 *.tsbuildinfo
 
+# CherryTasks private
+.claude/private/
+
 # Python
 __pycache__/
 *.py[cod]
