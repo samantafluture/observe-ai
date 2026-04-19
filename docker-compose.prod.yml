@@ -14,7 +14,3 @@ volumes:
   observe-ai_web:
     external: true
     name: observe-ai_web
-
-networks:
-  infra-net:
-    external: true
