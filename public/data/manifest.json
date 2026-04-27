@@ -1,6 +1,19 @@
 {
   "layers": {
-    "esg": "ok"
+    "ai_jobs": "ok",
+    "ai_labs": "ok",
+    "aws": "ok",
+    "azure": "ok",
+    "coauthorship": "ok",
+    "esg": "ok",
+    "export_controls": "ok",
+    "fabs": "ok",
+    "gcp": "ok",
+    "money": "ok",
+    "patents": "ok",
+    "regulations": "ok",
+    "supply_arcs": "ok",
+    "supply_trade": "ok"
   },
-  "updated": "2026-04-19"
+  "updated": "2026-04-27"
 }
